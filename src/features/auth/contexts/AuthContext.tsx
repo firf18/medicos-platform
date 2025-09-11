@@ -256,6 +256,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               blood_type: userData.bloodType,
               allergies: userData.allergies,
             }),
+            ...(userData.role === 'clinic' && {
+              clinic_name: userData.clinicName,
+              clinic_description: userData.clinicDescription,
+              clinic_address: userData.clinicAddress,
+              clinic_city: userData.clinicCity,
+              clinic_state: userData.clinicState,
+              clinic_country: userData.clinicCountry,
+              clinic_phone: userData.clinicPhone,
+              clinic_email: userData.clinicEmail,
+              clinic_website: userData.clinicWebsite,
+            }),
+            ...(userData.role === 'laboratory' && {
+              lab_name: userData.labName,
+              lab_description: userData.labDescription,
+              lab_address: userData.labAddress,
+              lab_city: userData.labCity,
+              lab_state: userData.labState,
+              lab_country: userData.labCountry,
+              lab_phone: userData.labPhone,
+              lab_email: userData.labEmail,
+              lab_website: userData.labWebsite,
+            }),
           },
         },
       });
@@ -370,10 +392,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const role = getRole(user) as 'admin' | 'doctor' | 'patient' | null;
+  const role = getRole(user) as 'admin' | 'doctor' | 'patient' | 'clinic' | 'laboratory' | null;
   const isAdmin = role === 'admin';
   const isDoctor = role === 'doctor';
   const isPatient = role === 'patient';
+  const isClinic = role === 'clinic';
+  const isLaboratory = role === 'laboratory';
 
   const value = {
     user,
@@ -384,6 +408,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin,
     isDoctor,
     isPatient,
+    isClinic,
+    isLaboratory,
     signIn,
     signUp,
     signOut,

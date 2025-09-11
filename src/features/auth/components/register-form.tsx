@@ -27,7 +27,7 @@ import {
 } from '../../../components/ui/select';
 
 // Definir los roles permitidos
-const roleEnum = z.enum(['patient', 'doctor']);
+const roleEnum = z.enum(['patient', 'doctor', 'clinic', 'laboratory']);
 
 // Esquema de validación del formulario
 const formSchema = z.object({
@@ -197,6 +197,8 @@ export function RegisterForm() {
                   <SelectContent>
                     <SelectItem value="patient">Paciente</SelectItem>
                     <SelectItem value="doctor">Médico</SelectItem>
+                    <SelectItem value="clinic">Clínica</SelectItem>
+                    <SelectItem value="laboratory">Laboratorio</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

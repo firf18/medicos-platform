@@ -42,8 +42,35 @@ export default function SetupWizardPage() {
       .eq('id', session.session.user.id)
       .single()
 
-    if (doctorError || !doctor) {
-      router.push('/patient-portal')
+    // Verificar si es clínica
+    const { data: clinic, error: clinicError } = await supabase
+      .from('clinics')
+      .select('id')
+      .eq('id', session.session.user.id)
+      .single()
+
+    // Verificar si es laboratorio
+    const { data: laboratory, error: laboratoryError } = await supabase
+      .from('laboratories')
+      .select('id')
+      .eq('id', session.session.user.id)
+      .single()
+
+    // Redirigir según el rol
+    if (doctor && !doctorError) {
+      // Es médico, continuar con este asistente
+      return
+    } else if (clinic && !clinicError) {
+      // Es clínica, redirigir al asistente de clínicas
+      router.push('/auth/setup-wizard/clinic')
+      return
+    } else if (laboratory && !laboratoryError) {
+      // Es laboratorio, redirigir al asistente de laboratorios
+      router.push('/auth/setup-wizard/laboratory')
+      return
+    } else {
+      // No es ninguno de los roles esperados
+      router.push('/unauthorized')
     }
   }
 
@@ -94,7 +121,7 @@ export default function SetupWizardPage() {
 
       if (error) throw error
 
-      router.push('/dashboard')
+      router.push('/doctor/dashboard')
     } catch (error) {
       console.error('Error updating doctor info:', error)
       alert('Error al guardar la información. Por favor intenta de nuevo.')

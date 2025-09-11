@@ -52,6 +52,14 @@ END $$;
 -- Ahora, aplicar las nuevas políticas (el contenido del archivo anterior)
 -- ... [Aquí iría el contenido completo del archivo anterior de políticas] ...
 
+-- Habilitar RLS en las tablas
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.doctors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.medical_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clinics ENABLE ROW LEVEL SECURITY;
+
 -- Función para verificar si el usuario actual es administrador
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
@@ -88,13 +96,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Habilitar RLS en las tablas
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.doctors ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.medical_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.clinics ENABLE ROW LEVEL SECURITY;
+-- Función para verificar si el usuario actual es una clínica
+CREATE OR REPLACE FUNCTION public.is_clinic()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'clinic'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Función para verificar si el usuario actual es un laboratorio
+CREATE OR REPLACE FUNCTION public.is_laboratory()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 
+    FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'laboratory'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Políticas para la tabla profiles
 -- Los usuarios solo pueden ver su propio perfil

@@ -13,3 +13,14 @@ export { Toaster } from './toaster'
 export { toast, useToast } from './use-toast'
 export { FlipCard } from './FlipCard'
 export { InfiniteScroll } from './InfiniteScroll'
+export { Textarea } from './textarea'
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+} from './table'

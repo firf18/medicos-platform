@@ -91,6 +91,35 @@ export type Database = {
           updated_at?: string
         }
       }
+      clinic_doctors: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          doctor_id: string | null
+          id: string
+          is_active: boolean | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          doctor_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          doctor_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: string | null
+          updated_at?: string
+        }
+      }
       doctors: {
         Row: {
           bio: string | null
@@ -129,6 +158,126 @@ export type Database = {
           updated_at?: string
         }
       }
+      lab_results: {
+        Row: {
+          created_at: string
+          doctor_id: string | null
+          id: string
+          is_critical: boolean | null
+          laboratory_id: string | null
+          patient_id: string | null
+          performed_at: string | null
+          result: string | null
+          result_file_url: string | null
+          service_id: string | null
+          test_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id?: string | null
+          id?: string
+          is_critical?: boolean | null
+          laboratory_id?: string | null
+          patient_id?: string | null
+          performed_at?: string | null
+          result?: string | null
+          result_file_url?: string | null
+          service_id?: string | null
+          test_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string | null
+          id?: string
+          is_critical?: boolean | null
+          laboratory_id?: string | null
+          patient_id?: string | null
+          performed_at?: string | null
+          result?: string | null
+          result_file_url?: string | null
+          service_id?: string | null
+          test_name?: string
+          updated_at?: string
+        }
+      }
+      laboratory_services: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          laboratory_id: string | null
+          name: string
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          laboratory_id?: string | null
+          name: string
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          laboratory_id?: string | null
+          name?: string
+          price?: number | null
+          updated_at?: string
+        }
+      }
+      laboratories: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          description: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          state: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          id: string
+          name: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+      }
       medical_records: {
         Row: {
           appointment_id: number | null
@@ -162,6 +311,44 @@ export type Database = {
           patient_id?: string
           treatment?: string | null
           updated_at?: string
+        }
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          related_entity_id: string | null
+          related_entity_type: string | null
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          title: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
         }
       }
       patients: {
@@ -260,7 +447,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_clinic: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_doctor: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_laboratory: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }

@@ -12,7 +12,7 @@ export const registerSchema = z
     confirmPassword: z.string().min(1, 'Por favor confirma tu contraseña'),
     firstName: z.string().min(1, 'El nombre es requerido'),
     lastName: z.string().min(1, 'El apellido es requerido'),
-    role: z.enum(['patient', 'doctor']),
+    role: z.enum(['patient', 'doctor', 'clinic', 'laboratory']),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Las contraseñas no coinciden',
