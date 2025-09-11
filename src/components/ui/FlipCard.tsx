@@ -6,9 +6,17 @@ interface FlipCardProps {
   frontContent: ReactNode;
   backContent: ReactNode;
   className?: string;
+  frontBackgroundColor?: string;
+  backBackgroundColor?: string;
 }
 
-export function FlipCard({ frontContent, backContent, className = "" }: FlipCardProps) {
+export function FlipCard({ 
+  frontContent, 
+  backContent, 
+  className = "",
+  frontBackgroundColor = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  backBackgroundColor = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+}: FlipCardProps) {
   return (
     <div className={`flip-box ${className}`}>
       <div className="flip-box-inner">
@@ -57,12 +65,12 @@ export function FlipCard({ frontContent, backContent, className = "" }: FlipCard
         }
 
         .flip-box-front {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: ${frontBackgroundColor};
           color: white;
         }
 
         .flip-box-back {
-          background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          background: ${backBackgroundColor};
           color: white;
           transform: rotateY(180deg);
         }

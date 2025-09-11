@@ -12,7 +12,14 @@
     "verify:setup": "node scripts/verify-setup.js",
     "fix:imports": "node scripts/fix-ui-imports.js",
     "config:auth": "node scripts/configure-auth-otp.js",
-    "test:auth": "node scripts/test-auth-config.js"
+    "test:auth": "node scripts/test-auth-config.js",
+    "test:otp": "node scripts/test-otp-config.js",
+    "debug:otp": "node scripts/debug-otp.js",
+    "debug:otp:advanced": "node scripts/debug-otp-advanced.js",
+    "check:supabase": "node scripts/check-supabase-config.js",
+    "setup:email-templates": "node scripts/setup-email-templates.js",
+    "diagnose:session": "node scripts/diagnose-session-error.js",
+    "fix:subscriptions": "node scripts/fix-subscription-errors.js"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

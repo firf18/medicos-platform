@@ -96,7 +96,11 @@ export function useAuth() {
     checkUser();
 
     return () => {
-      subscription?.unsubscribe();
+      try {
+        subscription?.unsubscribe();
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up auth subscription:', error);
+      }
     };
   }, [supabase.auth]);
 

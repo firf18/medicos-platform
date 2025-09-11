@@ -1,158 +1,186 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import EmailVerificationForm from '../../../components/auth/EmailVerificationForm';
-import { Card, CardContent } from '../../../components/ui/card';
+import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
 
 export default function VerifyEmailPage() {
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [email, setEmail] = useState('');
-  const [userType, setUserType] = useState<'patient' | 'doctor'>('patient');
-  const [linkVerificationAttempted, setLinkVerificationAttempted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const supabase = createClientComponentClient();
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const email = searchParams.get('email')
+  const type = searchParams.get('type') || 'patient'
+  
+  const supabase = createClient()
 
-  useEffect(() => {
-    const emailParam = searchParams.get('email');
-    const typeParam = searchParams.get('type') as 'patient' | 'doctor';
-    const tokenParam = searchParams.get('token');
-    const tokenHashParam = searchParams.get('token_hash');
-    
-    if (emailParam) setEmail(emailParam);
-    if (typeParam) setUserType(typeParam);
-    
-    // Si hay un token en la URL, intentar verificación por enlace
-    if (tokenParam || tokenHashParam) {
-      handleLinkVerification(tokenParam, tokenHashParam);
-    }
-    
-    if (!emailParam && !tokenParam && !tokenHashParam) {
-      router.push('/auth/register');
-    }
-  }, [searchParams, router]);
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !token) return
 
-  const handleLinkVerification = async (token?: string | null, tokenHash?: string | null) => {
-    if (linkVerificationAttempted) return;
-    
-    setLinkVerificationAttempted(true);
-    setLoading(true);
-    setError('');
+    setLoading(true)
+    setError('')
 
     try {
-      let result: any;
-      
-      if (tokenHash) {
-        // Verificación con token_hash (nuevo formato de Supabase)
-        result = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: 'email'
-        });
-      } else if (token) {
-        // Verificación con token directo
-        result = await supabase.auth.verifyOtp({
-          token: token,
-          type: 'signup',
-          email: email
-        });
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      })
+
+      if (error) {
+        console.error('OTP Verification Error:', error)
+        
+        // Mensajes de error más específicos
+        if (error.message.includes('Token has expired')) {
+          throw new Error('El código ha expirado. Solicita uno nuevo.')
+        } else if (error.message.includes('Invalid token')) {
+          throw new Error('El código ingresado no es válido. Verifica los 6 dígitos.')
+        } else if (error.message.includes('Email not confirmed')) {
+          throw new Error('No se pudo confirmar el email. Intenta con un código nuevo.')
+        } else {
+          throw new Error(`Error de verificación: ${error.message}`)
+        }
       }
 
-      if (result?.error) throw result.error;
-
-      if (result?.data?.user) {
-        handleSuccessfulVerification();
-      }
-    } catch (error: any) {
-      console.error('Error en verificación por enlace:', error);
-      setError('El enlace de verificación no es válido o ha expirado. Por favor, solicita un nuevo código.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSuccessfulVerification = () => {
-    setSuccess(true);
-    
-    // Redirigir después de 2 segundos
-    setTimeout(() => {
-      if (userType === 'patient') {
-        router.push('/patient-dashboard');
+      if (data.user) {
+        setSuccess(true)
+        
+        // Redirigir según el tipo de usuario después de un breve delay
+        setTimeout(() => {
+          const redirectTo = type === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'
+          router.push(redirectTo)
+        }, 2000)
       } else {
-        router.push('/dashboard');
+        throw new Error('No se pudo verificar el usuario. Intenta nuevamente.')
       }
-    }, 2000);
-  };
 
-  const handleVerificationError = (errorMessage: string) => {
-    setError(errorMessage);
-  };
+    } catch (error: any) {
+      console.error('Error verifying OTP:', error)
+      setError(error.message || 'Error al verificar el código')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (!email) return
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      })
+
+      if (error) throw error
+
+      // Mostrar mensaje de éxito temporal
+      setError('')
+      alert('Código reenviado. Revisa tu email.')
+
+    } catch (error: any) {
+      setError(error.message || 'Error al reenviar el código')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <div className="max-w-md w-full space-y-8 text-center">
+          <div>
+            <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-green-100">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
               ¡Email Verificado!
             </h2>
-            <p className="text-gray-600 mb-4">
-              Tu cuenta ha sido verificada exitosamente. 
-              Serás redirigido a tu dashboard en unos segundos...
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Tu cuenta ha sido verificada exitosamente. Serás redirigido en breve...
             </p>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      {email ? (
-        <EmailVerificationForm
-          email={email}
-          userType={userType}
-          onSuccess={handleSuccessfulVerification}
-          onError={handleVerificationError}
-        />
-      ) : (
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Error de Verificación
-            </h2>
-            <p className="text-gray-600 mb-4">
-              No se encontró información de verificación. Por favor, regístrate nuevamente.
-            </p>
-            <button
-              onClick={() => router.push('/auth/register')}
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Ir al registro
-            </button>
-          </CardContent>
-        </Card>
-      )}
-      
-      {error && (
-        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 max-w-sm">
-          <div className="flex items-start space-x-3">
-            <ExclamationTriangleIcon className="w-5 h-5 text-red-500 mt-0.5" />
-            <div className="text-sm text-red-700">
-              <p className="font-medium mb-1">Error</p>
-              <p>{error}</p>
-            </div>
-          </div>
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Verificar Email
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Ingresa el código de 6 dígitos que enviamos a{' '}
+            <span className="font-medium">{email}</span>
+          </p>
         </div>
-      )}
+
+        <form className="mt-8 space-y-6" onSubmit={handleVerifyOTP}>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="token" className="block text-sm font-medium text-gray-700">
+              Código de Verificación
+            </label>
+            <input
+              id="token"
+              name="token"
+              type="text"
+              required
+              maxLength={6}
+              placeholder="123456"
+              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-2xl tracking-widest"
+              value={token}
+              onChange={(e) => setToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            />
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={loading || token.length !== 6}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Verificando...' : 'Verificar Código'}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Link
+              href="/auth/register"
+              className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-500"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Volver al registro
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={loading}
+              className="text-sm text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
+            >
+              Reenviar código
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  );
+  )
 }

@@ -18,7 +18,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      subscription.unsubscribe();
+      try {
+        subscription.unsubscribe();
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up auth subscription:', error);
+      }
     };
   }, [router, supabase]);
 

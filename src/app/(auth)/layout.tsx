@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import MainNav from '@/components/navigation/MainNav';
+import MainNav from '@/components/navigation/main-nav';
 import { AUTH_ROUTES } from '@/lib/routes';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {

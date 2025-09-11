@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client'; // Usar nuestro cliente personalizado
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -23,21 +23,32 @@ export default function EmailVerificationForm({
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutos
+  const [timeLeft, setTimeLeft] = useState(900); // 15 minutos (900 segundos)
   const [canResend, setCanResend] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [verificationMethod, setVerificationMethod] = useState<'otp' | 'link'>('otp');
+  const [showExpirationWarning, setShowExpirationWarning] = useState(false);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const supabase = createClientComponentClient();
+  const supabase = createClient(); // Usar nuestro cliente con limpieza automática
 
   // Timer para expiración del código
   useEffect(() => {
     if (timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      const timer = setTimeout(() => {
+        setTimeLeft(timeLeft - 1);
+        
+        // Mostrar advertencia cuando quedan 2 minutos
+        if (timeLeft === 120) {
+          setShowExpirationWarning(true);
+          console.log('⚠️ El código expirará en 2 minutos');
+        }
+      }, 1000);
       return () => clearTimeout(timer);
     } else {
       setCanResend(true);
+      setShowExpirationWarning(false);
+      console.log('⏰ El código ha expirado');
     }
   }, [timeLeft]);
 
@@ -104,29 +115,145 @@ export default function EmailVerificationForm({
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: fullCode,
-        type: 'signup'
-      });
+      console.log('🔍 Iniciando verificación OTP...');
+      console.log('📧 Email:', email);
+      console.log('🔢 Código:', fullCode);
+      console.log('👤 Tipo de usuario:', userType);
+      
+      // Limpiar cualquier sesión previa
+      try {
+        await supabase.auth.signOut();
+        console.log('🧹 Sesión previa limpiada');
+      } catch (signOutError) {
+        console.log('⚠️ No se pudo limpiar sesión previa (normal):', signOutError);
+      }
 
-      if (error) throw error;
+      // Normalizar email
+      const normalizedEmail = email.trim().toLowerCase();
+      console.log('📧 Email normalizado:', normalizedEmail);
 
-      if (data.user) {
-        // Actualizar el perfil del usuario
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { 
-            user_type: userType,
-            email_verified: true 
+      // Intentar múltiples métodos de verificación
+      const verificationMethods = [
+        { type: 'signup', description: 'Verificación de registro' },
+        { type: 'email', description: 'Verificación de email' },
+        { type: 'email_change', description: 'Verificación de cambio de email' }
+      ];
+
+      let successResult = null;
+      let lastError = null;
+
+      for (const method of verificationMethods) {
+        try {
+          console.log(`🔄 Probando ${method.description} (${method.type})...`);
+          
+          const result = await supabase.auth.verifyOtp({
+            email: normalizedEmail,
+            token: fullCode,
+            type: method.type as any
+          });
+
+          console.log(`📊 Resultado ${method.type}:`, {
+            hasError: !!result.error,
+            hasUser: !!result.data?.user,
+            hasSession: !!result.data?.session,
+            errorMessage: result.error?.message,
+            errorCode: result.error?.status || result.error?.code,
+            userConfirmed: result.data?.user?.email_confirmed_at ? 'SÍ' : 'NO'
+          });
+
+          if (!result.error && result.data?.user) {
+            console.log(`✅ ¡Éxito con ${method.description}!`);
+            successResult = result;
+            break;
+          } else if (result.error) {
+            lastError = result.error;
+            console.log(`❌ ${method.description} falló:`, result.error.message);
           }
+        } catch (methodError: any) {
+          console.error(`💥 Excepción en ${method.description}:`, {
+            message: methodError?.message,
+            name: methodError?.name,
+            stack: methodError?.stack?.split('\n')[0] // Solo primera línea del stack
+          });
+          lastError = methodError;
+        }
+      }
+
+      // Verificar si tuvimos éxito
+      if (!successResult) {
+        console.error('❌ Todos los métodos de verificación fallaron');
+        console.error('🔍 Último error registrado:', {
+          message: lastError?.message,
+          status: lastError?.status,
+          code: lastError?.code,
+          name: lastError?.name
         });
 
-        if (updateError) throw updateError;
-
-        onSuccess();
+        // Crear mensaje de error más específico
+        let errorMessage = 'Código inválido o expirado';
+        
+        if (lastError?.message) {
+          const msg = lastError.message.toLowerCase();
+          if (msg.includes('expired') || msg.includes('expirado') || msg.includes('invalid')) {
+            errorMessage = 'El código ha expirado o es inválido. Solicita uno nuevo.';
+            // Auto-solicitar nuevo código si está expirado
+            setTimeout(() => {
+              if (!resendLoading && timeLeft <= 0) {
+                console.log('🔄 Solicitando automáticamente un nuevo código...');
+                handleResendCode();
+              }
+            }, 2000);
+          } else if (msg.includes('incorrect') || msg.includes('incorrecto')) {
+            errorMessage = 'Código incorrecto. Verifica los 6 dígitos.';
+          } else if (msg.includes('too many') || msg.includes('demasiados')) {
+            errorMessage = 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
+          } else if (msg.includes('not found') || msg.includes('no encontrado')) {
+            errorMessage = 'No se encontró un código pendiente. Solicita uno nuevo.';
+          } else if (msg.includes('already confirmed') || msg.includes('ya confirmado')) {
+            errorMessage = 'Esta cuenta ya está verificada. Intenta iniciar sesión.';
+          } else {
+            errorMessage = lastError.message;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
+
+      // Verificar que tengamos datos de usuario
+      if (!successResult.data?.user) {
+        console.error('❌ Verificación exitosa pero sin datos de usuario');
+        throw new Error('Verificación exitosa pero no se recibieron datos del usuario');
+      }
+
+      // Log de éxito detallado
+      console.log('🎉 Verificación completada exitosamente:');
+      console.log('👤 Usuario ID:', successResult.data.user.id);
+      console.log('📧 Email:', successResult.data.user.email);
+      console.log('✅ Email confirmado:', successResult.data.user.email_confirmed_at || 'AHORA');
+      console.log('🏷️ Metadata:', successResult.data.user.user_metadata);
+      console.log('🎫 Sesión:', successResult.data.session ? 'ACTIVA' : 'NO CREADA');
+      
+      // Verificar que el email coincida
+      if (successResult.data.user.email !== normalizedEmail) {
+        console.warn('⚠️ El email del usuario no coincide con el proporcionado');
+        console.warn('   Esperado:', normalizedEmail);
+        console.warn('   Recibido:', successResult.data.user.email);
+      }
+      
+      onSuccess();
+      
     } catch (error: any) {
-      onError(error.message || 'Código inválido o expirado');
+      console.error('💥 Error crítico en el proceso de verificación:');
+      console.error('🔍 Tipo de error:', typeof error);
+      console.error('🏷️ Constructor:', error?.constructor?.name);
+      console.error('📝 Mensaje:', error?.message || 'Sin mensaje');
+      console.error('📊 Código:', error?.code || error?.status || 'Sin código');
+      console.error('🔧 Stack (primeras 3 líneas):', error?.stack?.split('\n').slice(0, 3).join('\n') || 'Sin stack trace');
+      console.error('🗂️ Error completo:', error);
+      
+      const errorMessage = error?.message || 'Error desconocido al verificar el código';
+      onError(errorMessage);
+      
       // Limpiar el código en caso de error
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -141,42 +268,93 @@ export default function EmailVerificationForm({
     setResendLoading(true);
 
     try {
-      // Intentar reenviar como OTP
-      const { error: otpError } = await supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: undefined // Forzar OTP
-        }
-      });
+      console.log('🔄 Solicitando nuevo código OTP...');
+      console.log('📧 Email:', email);
+      
+      // Limpiar sesión antes de reenviar
+      try {
+        await supabase.auth.signOut();
+        console.log('🧹 Sesión limpiada antes del reenvío');
+      } catch (signOutError) {
+        console.log('⚠️ No se pudo limpiar sesión antes del reenvío');
+      }
 
-      if (otpError) {
-        // Si falla, intentar con enlace
-        const { error: linkError } = await supabase.auth.resend({
+      // Intentar diferentes métodos de reenvío
+      let resendResult;
+      
+      try {
+        // Primero intentar reenvío tipo signup
+        resendResult = await supabase.auth.resend({
           type: 'signup',
-          email: email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/verify-email?email=${encodeURIComponent(email)}&type=${userType}`
-          }
+          email: email.trim().toLowerCase()
         });
         
-        if (linkError) throw linkError;
+        console.log('📊 Resultado reenvío signup:', {
+          hasError: !!resendResult.error,
+          errorMessage: resendResult.error?.message
+        });
         
-        setVerificationMethod('link');
-        onError('Se envió un enlace de verificación. Si prefieres un código, contacta al soporte.');
-      } else {
-        setVerificationMethod('otp');
-        // Reiniciar timers
-        setTimeLeft(600);
-        setCanResend(false);
-        setResendCooldown(60); // 1 minuto de cooldown
-        
-        // Limpiar código actual
-        setCode(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
+      } catch (signupResendError: any) {
+        console.log('❌ Error en reenvío signup:', signupResendError.message);
+        resendResult = { error: signupResendError };
       }
+      
+      // Si signup falla, intentar con email_change
+      if (resendResult.error) {
+        try {
+          console.log('🔄 Intentando reenvío con tipo email_change...');
+          const emailResendResult = await supabase.auth.resend({
+            type: 'email_change',
+            email: email.trim().toLowerCase()
+          });
+          
+          console.log('📊 Resultado reenvío email_change:', {
+            hasError: !!emailResendResult.error,
+            errorMessage: emailResendResult.error?.message
+          });
+          
+          if (!emailResendResult.error) {
+            resendResult = emailResendResult;
+          }
+          
+        } catch (emailResendError: any) {
+          console.log('❌ Error en reenvío email_change:', emailResendError.message);
+        }
+      }
+
+      if (resendResult.error) {
+        console.error('❌ Error final en reenvío:', resendResult.error);
+        throw resendResult.error;
+      }
+
+      setVerificationMethod('otp');
+      // Reiniciar timers con tiempo extendido
+      setTimeLeft(900); // 15 minutos en lugar de 10
+      setCanResend(false);
+      setResendCooldown(60); // 1 minuto de cooldown
+      
+      // Limpiar código actual
+      setCode(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+      
+      console.log('✅ Código reenviado exitosamente');
+      
     } catch (error: any) {
-      onError(error.message || 'Error al reenviar el código');
+      console.error('❌ Error reenviando código:', error);
+      let errorMessage = 'Error al reenviar el código';
+      
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('rate limit') || msg.includes('too many')) {
+          errorMessage = 'Demasiados intentos. Espera unos minutos antes de solicitar otro código.';
+        } else if (msg.includes('invalid email')) {
+          errorMessage = 'Email inválido. Verifica la dirección de correo.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      onError(errorMessage);
     } finally {
       setResendLoading(false);
     }
@@ -192,6 +370,35 @@ export default function EmailVerificationForm({
           Ingresa el código de 6 dígitos enviado a:
         </p>
         <p className="font-semibold text-blue-600 break-all">{email}</p>
+        
+        {/* Advertencia de expiración */}
+        {showExpirationWarning && timeLeft > 0 && (
+          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <ClockIcon className="w-5 h-5 text-yellow-600" />
+              <p className="text-yellow-800 text-sm font-medium">
+                ⚠️ El código expirará en {formatTime(timeLeft)}. ¡Date prisa!
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Mensaje de código expirado */}
+        {timeLeft === 0 && (
+          <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <ClockIcon className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="text-red-800 text-sm font-medium">
+                  ⏰ El código ha expirado
+                </p>
+                <p className="text-red-700 text-xs mt-1">
+                  Solicita un nuevo código para continuar
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </CardHeader>
       
       <CardContent className="space-y-6">
@@ -258,24 +465,39 @@ export default function EmailVerificationForm({
 
         <div className="text-center">
           <p className="text-sm text-gray-600 mb-2">
-            ¿No recibiste el código?
+            {timeLeft === 0 ? '¡El código ha expirado!' : '¿No recibiste el código?'}
           </p>
           <Button
             variant="ghost"
             onClick={handleResendCode}
-            disabled={resendLoading || (!canResend && resendCooldown === 0)}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            disabled={resendLoading || (!canResend && resendCooldown === 0 && timeLeft > 0)}
+            className={`text-sm font-medium ${
+              timeLeft === 0 
+                ? 'bg-blue-600 text-white hover:bg-blue-700 px-6 py-2' 
+                : 'text-blue-600 hover:text-blue-800'
+            }`}
           >
             {resendLoading ? (
-              'Reenviando...'
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                <span>Reenviando...</span>
+              </div>
             ) : resendCooldown > 0 ? (
               `Reenviar en ${resendCooldown}s`
+            ) : timeLeft === 0 ? (
+              '🔄 Solicitar nuevo código'
             ) : canResend ? (
               'Reenviar código'
             ) : (
               'Reenviar código'
             )}
           </Button>
+          
+          {timeLeft === 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Los códigos expiran por seguridad. Solicita uno nuevo.
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

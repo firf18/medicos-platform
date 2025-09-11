@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProviderWrapper } from '@/components/providers/AuthProviderWrapper';
+import { AuthCleanupButton } from '@/components/auth/AuthCleanupButton';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen bg-gray-50`}>
         <AuthProviderWrapper>
           {children}
+          <AuthCleanupButton />
         </AuthProviderWrapper>
       </body>
     </html>

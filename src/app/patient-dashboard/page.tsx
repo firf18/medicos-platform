@@ -1,13 +1,6 @@
-import { Suspense } from 'react';
-import { PatientDashboardContent } from '@/components/patient-dashboard/PatientDashboardContent';
-import { PatientDashboardSkeleton } from '@/components/patient-dashboard/PatientDashboardSkeleton';
+import { redirect } from 'next/navigation'
 
 export default function PatientDashboardPage() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Suspense fallback={<PatientDashboardSkeleton />}>
-        <PatientDashboardContent />
-      </Suspense>
-    </div>
-  );
+  // Redirect to main patient dashboard
+  redirect('/patient/dashboard')
 }

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '@/features/auth/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 

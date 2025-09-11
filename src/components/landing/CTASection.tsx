@@ -20,13 +20,13 @@ export function CTASection() {
         
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
           <Link 
-            href="/register" 
+            href="/auth/register" 
             className="bg-white text-blue-700 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-50 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Comenzar gratis ahora
           </Link>
           <Link 
-            href="#features" 
+            href="/servicios" 
             className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:bg-opacity-10 transition-colors duration-200"
           >
             Ver más información

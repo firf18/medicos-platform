@@ -56,7 +56,7 @@ export default function MedicosLoginPage() {
       if (needsSetup) {
         router.push('/auth/setup-wizard')
       } else {
-        router.push('/dashboard')
+        router.push('/doctor/dashboard')
       }
     } catch (error: any) {
       setError(error.message)

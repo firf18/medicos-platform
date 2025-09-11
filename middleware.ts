@@ -1,111 +1,142 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Rutas protegidas que requieren autenticación
-  const protectedRoutes = ['/dashboard', '/patient-dashboard', '/patient-portal']
-  const authRoutes = ['/auth/login', '/auth/register', '/auth/setup-wizard', '/auth/verify-email']
+  const res = NextResponse.next();
+  let supabase;
+  let session = null;
   
-  const isProtectedRoute = protectedRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-  
-  const isAuthRoute = authRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-
-  // Si es una ruta protegida y no hay usuario, redirigir a login
-  if (isProtectedRoute && !user) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
-  }
-
-  // Si hay usuario pero no está verificado, redirigir a verificación
-  if (user && !user.email_confirmed_at && !request.nextUrl.pathname.startsWith('/auth/verify-email')) {
-    const userType = user.user_metadata?.user_type || 'patient';
-    return NextResponse.redirect(
-      new URL(`/auth/verify-email?email=${encodeURIComponent(user.email!)}&type=${userType}`, request.url)
-    );
-  }
-
-  // Si es una ruta de auth y hay usuario verificado, redirigir según el rol
-  if (isAuthRoute && user && user.email_confirmed_at && !request.nextUrl.pathname.startsWith('/auth/verify-email')) {
-    const userType = user.user_metadata?.user_type;
-
-    if (userType === 'doctor') {
-      // Verificar si el doctor completó la configuración
-      const { data: doctor } = await supabase
-        .from('doctors')
-        .select('specialty_id, license_number')
-        .eq('id', user.id)
-        .single()
-
-      if (!doctor?.specialty_id || doctor.license_number?.startsWith('TEMP-')) {
-        if (request.nextUrl.pathname !== '/auth/setup-wizard') {
-          return NextResponse.redirect(new URL('/auth/setup-wizard', request.url))
-        }
+  try {
+    supabase = createMiddlewareClient({ req: request, res });
+    
+    // Intentar obtener la sesión con manejo de errores robusto
+    const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('❌ Middleware: Error obteniendo sesión:', error);
+      
+      // Si hay error de sesión, continuar sin sesión
+      if (error.message?.includes('AuthSessionMissingError') || 
+          error.message?.includes('Auth session missing') ||
+          error.message?.includes('Failed to parse')) {
+        console.log('⚠️ Middleware: Detectado error de sesión, continuando sin autenticación');
+        session = null;
       } else {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        // Para otros errores, también continuar sin sesión
+        session = null;
       }
-    } else if (userType === 'patient') {
-      return NextResponse.redirect(new URL('/patient-dashboard', request.url))
+    } else {
+      session = currentSession;
+    }
+    
+  } catch (error: any) {
+    console.error('❌ Middleware: Error crítico:', error);
+    
+    // En caso de error crítico, continuar sin sesión
+    session = null;
+    
+    // Si es AuthSessionMissingError, agregar header para que el cliente lo maneje
+    if (error.name === 'AuthSessionMissingError' || 
+        error.message?.includes('AuthSessionMissingError')) {
+      const response = NextResponse.next();
+      response.headers.set('X-Auth-Error', 'AuthSessionMissingError');
+      return response;
+    }
+  }
+  
+  // Define public routes that don't require authentication
+  const publicRoutes = [
+    '/',
+    '/auth/login',
+    '/auth/register',
+    '/auth/register/doctor',
+    '/auth/register/patient',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/auth/verify-email',
+    '/auth/confirm',
+    '/auth/auth-code-error',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/verify-email',
+    '/api',
+    '/nosotros',
+    '/servicios',
+    '/precios',
+    '/medicos',
+    '/contacto',
+    '/demo',
+    '/faq',
+    '/terminos',
+    '/privacidad',
+    '/aviso-legal'
+  ];
+  
+  // Define protected routes that require authentication
+  const protectedRoutes = [
+    '/dashboard',
+    '/patient/dashboard',
+    '/doctor/dashboard',
+    '/appointments',
+    '/profile',
+    '/settings',
+  ];
+
+  // Handle legacy route redirects
+  const pathname = request.nextUrl.pathname;
+  
+  // If user is signed in and tries to access auth pages, redirect to appropriate dashboard
+  if (session) {
+    // Redirect from auth pages to dashboard
+    if (pathname.startsWith('/auth/login') || pathname.startsWith('/auth/register') || pathname === '/login' || pathname === '/register') {
+      const role = session.user?.user_metadata?.role || 'patient';
+      const redirectTo = role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard';
+      return NextResponse.redirect(new URL(redirectTo, request.url));
+    }
+    
+    // Handle legacy route redirects for authenticated users
+    if (pathname === '/patient-portal' || pathname === '/patient-dashboard') {
+      return NextResponse.redirect(new URL('/patient/dashboard', request.url));
+    }
+  } else {
+    // Handle legacy route redirects for non-authenticated users
+    if (pathname === '/patient-portal' || pathname === '/patient-dashboard') {
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+    
+    // If user is not signed in and the current path is not public, redirect to login
+    if (!publicRoutes.some(route => pathname.startsWith(route))) {
+      const redirectUrl = new URL('/auth/login', request.url);
+      redirectUrl.searchParams.set('redirectedFrom', pathname);
+      return NextResponse.redirect(redirectUrl);
     }
   }
 
-  return response
+  // Role-based access control for protected routes
+  if (session && protectedRoutes.some(route => pathname.startsWith(route))) {
+    const role = session.user?.user_metadata?.role || 'patient';
+    
+    // Restrict doctor routes to doctors only
+    if (pathname.startsWith('/doctor/') && role !== 'doctor') {
+      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
+    }
+    
+    // Restrict patient routes to patients only
+    if (pathname.startsWith('/patient/') && role !== 'patient') {
+      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
+    }
+    
+    // Redirect generic dashboard based on role
+    if (pathname === '/dashboard') {
+      const redirectTo = role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard';
+      return NextResponse.redirect(new URL(redirectTo, request.url));
+    }
+  }
+  
+  return res;
 }
 
 export const config = {
@@ -115,8 +146,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api/auth/callback (auth callbacks)
+     * - public folder
+     * - api routes (handled separately)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/auth/callback).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-}
+};

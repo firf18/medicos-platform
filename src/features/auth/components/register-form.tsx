@@ -16,7 +16,7 @@ import {
 } from '../../../components/ui/form';
 import { Input } from '../../../components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { AUTH_ROUTES } from '@/lib/routes';
 import {
   Select,

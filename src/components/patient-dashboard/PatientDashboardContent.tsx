@@ -46,30 +46,55 @@ export function PatientDashboardContent() {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
-      if (error || !user) {
-        router.push("/auth/login/pacientes");
-        return;
+        if (error) {
+          console.error('Error getting user:', error);
+          
+          // Si es error de cookies corruptas, limpiar y redirigir
+          if (error.message?.includes('Failed to parse') || error.message?.includes('Invalid token')) {
+            await supabase.auth.signOut();
+            window.location.href = '/auth/login';
+            return;
+          }
+          
+          router.push("/auth/login");
+          return;
+        }
+
+        if (!user) {
+          router.push("/auth/login");
+          return;
+        }
+
+        // Verify user is a patient
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("user_type")
+          .eq("id", user.id)
+          .single();
+
+        // Check user metadata if profile doesn't exist
+        const userType = profile?.user_type || user.user_metadata?.role || 'patient';
+        
+        if (userType !== "patient") {
+          router.push("/auth/unauthorized");
+          return;
+        }
+
+        setUser(user);
+      } catch (error) {
+        console.error('Unexpected error:', error);
+        // En caso de error inesperado, limpiar estado y redirigir
+        await supabase.auth.signOut();
+        router.push("/auth/login");
+      } finally {
+        setLoading(false);
       }
-
-      // Verify user is a patient
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("user_type")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.user_type !== "patient") {
-        router.push("/auth/unauthorized");
-        return;
-      }
-
-      setUser(user);
-      setLoading(false);
     };
 
     getUser();

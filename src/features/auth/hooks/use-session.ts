@@ -24,7 +24,13 @@ export function useSession() {
       router.refresh();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      try {
+        subscription.unsubscribe();
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up auth subscription:', error);
+      }
+    };
   }, [router, supabase]);
 
   return { session, isLoading };

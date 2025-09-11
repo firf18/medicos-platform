@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/features/auth/contexts/AuthContext' // Usar el AuthContext correcto
 import { Heart, Eye, EyeOff } from 'lucide-react'
 
 export default function PacientesLoginPage() {
@@ -14,7 +14,7 @@ export default function PacientesLoginPage() {
   const [error, setError] = useState('')
   
   const router = useRouter()
-  const supabase = createClient()
+  const { signIn } = useAuth() // Usar el método del AuthContext
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,28 +22,25 @@ export default function PacientesLoginPage() {
     setError('')
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      console.log('👤 Iniciando login de paciente...', email);
+      
+      // Usar el método signIn del AuthContext que ya maneja todo
+      const { error: authError } = await signIn(email, password);
 
-      if (error) throw error
-
-      // Verificar si es paciente
-      const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('id', data.user.id)
-        .single()
-
-      if (patientError || !patient) {
-        await supabase.auth.signOut()
-        throw new Error('Esta cuenta no es de paciente. Usa el login de médicos.')
+      if (authError) {
+        console.error('❌ Error en signIn:', authError);
+        throw authError;
       }
 
-      router.push('/patient-portal')
+      console.log('✅ Login exitoso, redirigiendo...');
+      
+      // El middleware se encargará de la redirección apropiada
+      // Si es paciente irá a /patient/dashboard, si es doctor irá a /doctor/dashboard
+      router.push('/patient/dashboard');
+      
     } catch (error: any) {
-      setError(error.message)
+      console.error('❌ Error en login:', error);
+      setError(error.message || 'Error al iniciar sesión')
     } finally {
       setLoading(false)
     }
