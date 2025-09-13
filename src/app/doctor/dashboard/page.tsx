@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -27,15 +27,6 @@ interface Appointment {
   };
 }
 
-interface Patient {
-  id: string;
-  created_at: string;
-  profiles?: {
-    first_name?: string;
-    last_name?: string;
-    email?: string;
-  };
-}
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
@@ -71,7 +62,7 @@ export default function DoctorDashboard() {
       const { data: todayAppointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select('*, patients(*, profiles(*))')
-        .eq('doctor_id', user?.id)
+        .eq('doctor_id', user?.id || '')
         .gte('scheduled_at', `${today}T00:00:00`)
         .lt('scheduled_at', `${today}T23:59:59`)
         .order('scheduled_at', { ascending: true });
@@ -84,7 +75,7 @@ export default function DoctorDashboard() {
       const { data: upcomingAppointments, error: upcomingError } = await supabase
         .from('appointments')
         .select('*, patients(*, profiles(*))')
-        .eq('doctor_id', user?.id)
+        .eq('doctor_id', user?.id || '')
         .gte('scheduled_at', new Date().toISOString())
         .lte('scheduled_at', nextWeek.toISOString())
         .order('scheduled_at', { ascending: true })

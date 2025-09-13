@@ -2,7 +2,6 @@
 
 import { ForgotPasswordForm } from '@/features/auth/components/forgot-password-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
 import Link from 'next/link';
 
 export default function ForgotPasswordPage() {
@@ -28,7 +27,7 @@ export default function ForgotPasswordPage() {
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              "La mejor plataforma para la gestión médica en Venezuela. Simplificando la atención médica para profesionales y pacientes."
+              &ldquo;La mejor plataforma para la gestión médica en Venezuela. Simplificando la atención médica para profesionales y pacientes.&rdquo;
             </p>
             <footer className="text-sm">Dr. Juan Pérez</footer>
           </blockquote>

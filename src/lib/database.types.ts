@@ -313,42 +313,397 @@ export type Database = {
           updated_at?: string
         }
       }
+      medical_documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          doctor_id: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          is_critical: boolean | null
+          patient_id: string
+          shared_with_caregivers: boolean | null
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          doctor_id?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_critical?: boolean | null
+          patient_id: string
+          shared_with_caregivers?: boolean | null
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          doctor_id?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_critical?: boolean | null
+          patient_id?: string
+          shared_with_caregivers?: boolean | null
+          tags?: string[] | null
+          title?: string
+        }
+      }
       notifications: {
         Row: {
+          channels: string[] | null
           created_at: string
           id: string
           is_read: boolean | null
           message: string
-          related_entity_id: string | null
-          related_entity_type: string | null
+          metadata: Json | null
+          notification_type: string
+          patient_id: string
+          priority: string | null
+          scheduled_for: string | null
+          sent_at: string | null
           title: string
-          type: string
-          updated_at: string
-          user_id: string
         }
         Insert: {
+          channels?: string[] | null
           created_at?: string
           id?: string
           is_read?: boolean | null
           message: string
-          related_entity_id?: string | null
-          related_entity_type?: string | null
+          metadata?: Json | null
+          notification_type: string
+          patient_id: string
+          priority?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
           title: string
-          type: string
-          updated_at?: string
-          user_id: string
         }
         Update: {
+          channels?: string[] | null
           created_at?: string
           id?: string
           is_read?: boolean | null
           message?: string
-          related_entity_id?: string | null
-          related_entity_type?: string | null
+          metadata?: Json | null
+          notification_type?: string
+          patient_id?: string
+          priority?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
           title?: string
-          type?: string
+        }
+      }
+      patient_caregivers: {
+        Row: {
+          access_level: string
+          caregiver_email: string
+          caregiver_name: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          is_emergency_contact: boolean | null
+          patient_id: string
+          permissions: Json | null
+          relationship: string
+          updated_at: string
+        }
+        Insert: {
+          access_level?: string
+          caregiver_email: string
+          caregiver_name: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_emergency_contact?: boolean | null
+          patient_id: string
+          permissions?: Json | null
+          relationship: string
           updated_at?: string
-          user_id?: string
+        }
+        Update: {
+          access_level?: string
+          caregiver_email?: string
+          caregiver_name?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_emergency_contact?: boolean | null
+          patient_id?: string
+          permissions?: Json | null
+          relationship?: string
+          updated_at?: string
+        }
+      }
+      emergency_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          patient_id: string
+          phone: string
+          priority: number | null
+          relationship: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          patient_id: string
+          phone: string
+          priority?: number | null
+          relationship: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          patient_id?: string
+          phone?: string
+          priority?: number | null
+          relationship?: string
+        }
+      }
+      health_metrics: {
+        Row: {
+          additional_data: Json | null
+          created_at: string
+          id: string
+          metric_type: string
+          notes: string | null
+          patient_id: string
+          recorded_at: string
+          source: string | null
+          unit: string
+          value: number
+        }
+        Insert: {
+          additional_data?: Json | null
+          created_at?: string
+          id?: string
+          metric_type: string
+          notes?: string | null
+          patient_id: string
+          recorded_at?: string
+          source?: string | null
+          unit: string
+          value: number
+        }
+        Update: {
+          additional_data?: Json | null
+          created_at?: string
+          id?: string
+          metric_type?: string
+          notes?: string | null
+          patient_id?: string
+          recorded_at?: string
+          source?: string | null
+          unit?: string
+          value?: number
+        }
+      }
+      health_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          doctor_id: string | null
+          end_date: string | null
+          id: string
+          milestones: Json | null
+          patient_id: string
+          plan_type: string
+          start_date: string
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          doctor_id?: string | null
+          end_date?: string | null
+          id?: string
+          milestones?: Json | null
+          patient_id: string
+          plan_type: string
+          start_date: string
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          doctor_id?: string | null
+          end_date?: string | null
+          id?: string
+          milestones?: Json | null
+          patient_id?: string
+          plan_type?: string
+          start_date?: string
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+      }
+      health_plan_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          health_plan_id: string
+          id: string
+          is_completed: boolean | null
+          notes: string | null
+          task_type: string
+          title: string
+          target_value: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          health_plan_id: string
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          task_type: string
+          title: string
+          target_value?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          health_plan_id?: string
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          task_type?: string
+          title?: string
+          target_value?: Json | null
+        }
+      }
+      patient_medications: {
+        Row: {
+          adherence_score: number | null
+          created_at: string
+          doctor_id: string | null
+          dosage: string
+          end_date: string | null
+          frequency: string
+          id: string
+          instructions: string | null
+          is_active: boolean | null
+          medication_name: string
+          patient_id: string
+          side_effects_reported: string[] | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          adherence_score?: number | null
+          created_at?: string
+          doctor_id?: string | null
+          dosage: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          instructions?: string | null
+          is_active?: boolean | null
+          medication_name: string
+          patient_id: string
+          side_effects_reported?: string[] | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          adherence_score?: number | null
+          created_at?: string
+          doctor_id?: string | null
+          dosage?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          instructions?: string | null
+          is_active?: boolean | null
+          medication_name?: string
+          patient_id?: string
+          side_effects_reported?: string[] | null
+          start_date?: string
+          updated_at?: string
+        }
+      }
+      second_opinion_requests: {
+        Row: {
+          case_description: string
+          case_title: string
+          created_at: string
+          current_diagnosis: string | null
+          current_treatment: string | null
+          id: string
+          original_doctor_id: string | null
+          patient_id: string
+          requested_at: string
+          responded_at: string | null
+          specialist_id: string | null
+          specialist_recommendations: string | null
+          specialist_response: string | null
+          specific_questions: string | null
+          status: string | null
+          urgency_level: string | null
+        }
+        Insert: {
+          case_description: string
+          case_title: string
+          created_at?: string
+          current_diagnosis?: string | null
+          current_treatment?: string | null
+          id?: string
+          original_doctor_id?: string | null
+          patient_id: string
+          requested_at?: string
+          responded_at?: string | null
+          specialist_id?: string | null
+          specialist_recommendations?: string | null
+          specialist_response?: string | null
+          specific_questions?: string | null
+          status?: string | null
+          urgency_level?: string | null
+        }
+        Update: {
+          case_description?: string
+          case_title?: string
+          created_at?: string
+          current_diagnosis?: string | null
+          current_treatment?: string | null
+          id?: string
+          original_doctor_id?: string | null
+          patient_id?: string
+          requested_at?: string
+          responded_at?: string | null
+          specialist_id?: string | null
+          specialist_recommendations?: string | null
+          specialist_response?: string | null
+          specific_questions?: string | null
+          status?: string | null
+          urgency_level?: string | null
         }
       }
       patients: {

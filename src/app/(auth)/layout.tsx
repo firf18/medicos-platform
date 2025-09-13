@@ -15,7 +15,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     AUTH_ROUTES.VERIFY_EMAIL
   ] as const;
   
-  const showNav = pathname ? !authRoutes.includes(pathname as any) : true;
+  const showNav = pathname ? !authRoutes.includes(pathname as typeof authRoutes[number]) : true;
 
   return (
     <div className="min-h-screen bg-gray-50">

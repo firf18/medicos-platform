@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '../../../components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -12,12 +12,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../components/ui/form';
-import { Input } from '../../../components/ui/input';
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { forgotPasswordSchema, ForgotPasswordFormData } from '@/lib/validations';
 import { AUTH_ROUTES } from '@/lib/routes';
+import { AuthLoadingState } from '@/features/auth/components/auth-loading-state';
+import { PostgrestError } from '@supabase/supabase-js';
 
 export function ForgotPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -48,17 +50,22 @@ export function ForgotPasswordForm() {
         title: 'Correo enviado',
         description: 'Hemos enviado un enlace para restablecer tu contraseña a tu correo electrónico.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending password reset email:', error);
+      const errorMessage = (error as PostgrestError).message || 'Ocurrió un error al enviar el correo de restablecimiento';
       toast({
         title: 'Error al enviar el correo',
-        description: error.message || 'Ocurrió un error al enviar el correo de restablecimiento',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return <AuthLoadingState message="Enviando enlace de recuperación..." variant="verification" />;
+  }
 
   if (isEmailSent) {
     return (

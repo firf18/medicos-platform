@@ -245,7 +245,7 @@ export function DemoContent() {
               }
             ].map((testimonial, index) => (
               <div key={index} className="bg-white p-6 rounded-lg shadow-md">
-                <p className="text-gray-700 mb-4 italic">"{testimonial.comment}"</p>
+                <p className="text-gray-700 mb-4 italic">&ldquo;{testimonial.comment}&rdquo;</p>
                 <div>
                   <h4 className="font-semibold text-gray-900">{testimonial.name}</h4>
                   <p className="text-gray-600 text-sm">{testimonial.role}</p>

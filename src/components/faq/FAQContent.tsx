@@ -162,7 +162,7 @@ export function FAQContent() {
           {filteredFAQs.length === 0 ? (
             <div className="text-center py-12">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                No encontramos resultados para "{searchTerm}"
+                No encontramos resultados para &ldquo;{searchTerm}&rdquo;
               </h3>
               <p className="text-gray-600 mb-6">
                 Intenta con otros términos o contáctanos directamente

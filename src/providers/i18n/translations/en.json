@@ -1,0 +1,138 @@
+{
+  "auth": {
+    "login": {
+      "title": "Login",
+      "email": "Email Address",
+      "password": "Password",
+      "forgotPassword": "Forgot your password?",
+      "loginButton": "Login",
+      "noAccount": "Don't have an account?",
+      "registerNow": "Register now",
+      "errors": {
+        "invalidCredentials": "Invalid credentials",
+        "accountNotVerified": "Account not verified"
+      }
+    },
+    "register": {
+      "title": "Create Account",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "role": "Account Type",
+      "patient": "Patient",
+      "doctor": "Doctor",
+      "clinic": "Clinic",
+      "laboratory": "Laboratory",
+      "registerButton": "Create Account",
+      "haveAccount": "Already have an account?",
+      "loginNow": "Login now",
+      "errors": {
+        "passwordMismatch": "Passwords do not match",
+        "weakPassword": "Password is too weak"
+      }
+    },
+    "forgotPassword": {
+      "title": "Recover Password",
+      "description": "Enter your email address and we'll send you a link to reset your password.",
+      "email": "Email Address",
+      "sendLink": "Send Link",
+      "backToLogin": "Back to login"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "updatePassword": "Update Password",
+      "backToLogin": "Back to login"
+    },
+    "verifyEmail": {
+      "title": "Verify Email Address",
+      "description": "Enter the verification code we sent to your email address.",
+      "code": "Verification Code",
+      "verifyButton": "Verify",
+      "resendCode": "Resend Code",
+      "codeSent": "Code sent to {email}"
+    },
+    "resendVerification": {
+      "title": "Resend Verification",
+      "description": "Enter your email address and we'll send you a new verification code.",
+      "email": "Email Address",
+      "resendButton": "Resend Code"
+    },
+    "session": {
+      "sessionExpired": "Session Expired",
+      "sessionExpiring": "Session About to Expire",
+      "logoutAllTabs": "Logout All Tabs"
+    }
+  },
+  "dashboard": {
+    "patient": {
+      "title": "Patient Dashboard",
+      "appointments": "Appointments",
+      "medications": "Medications",
+      "healthMetrics": "Health Metrics",
+      "medicalHistory": "Medical History",
+      "emergencyContacts": "Emergency Contacts"
+    },
+    "doctor": {
+      "title": "Doctor Dashboard",
+      "patients": "Patients",
+      "appointments": "Appointments",
+      "medicalRecords": "Medical Records",
+      "prescriptions": "Prescriptions"
+    },
+    "clinic": {
+      "title": "Clinic Dashboard",
+      "doctors": "Doctors",
+      "patients": "Patients",
+      "appointments": "Appointments"
+    },
+    "laboratory": {
+      "title": "Laboratory Dashboard",
+      "tests": "Tests",
+      "results": "Results",
+      "patients": "Patients"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "close": "Close",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information",
+    "actions": "Actions",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "refresh": "Refresh",
+    "logout": "Logout",
+    "profile": "Profile",
+    "settings": "Settings",
+    "notifications": "Notifications",
+    "language": "Language",
+    "spanish": "Spanish",
+    "english": "English"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "minLength": "Must be at least {min} characters",
+    "maxLength": "Must not exceed {max} characters",
+    "passwordMismatch": "Passwords do not match"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "patient": "Patient",
+    "doctor": "Doctor",
+    "clinic": "Clinic",
+    "laboratory": "Laboratory"
+  }
+}

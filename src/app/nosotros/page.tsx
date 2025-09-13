@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { Heart, Users, Shield, Zap, Target, Eye, Award, CheckCircle } from 'lucide-react';
+import { Heart, Users, Shield, Zap, Target, Eye, CheckCircle } from 'lucide-react';
 
 export default function NosotrosPage() {
   const valores = [

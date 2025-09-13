@@ -1,28 +1,47 @@
-import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import DashboardLayout from '@/components/dashboard/DashboardLayout'
+'use client';
 
-export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient()
-  
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/providers/auth';
+import { getSpecialtyById } from '@/lib/medical-specialties';
 
-  if (!session) {
-    redirect('/auth/login')
-  }
+export default function DashboardRedirect() {
+  const router = useRouter();
+  const { user } = useAuth();
 
-  // Verificar si el usuario es médico
-  const { data: doctor, error: doctorError } = await supabase
-    .from('doctors')
-    .select('id')
-    .eq('id', session.user.id)
-    .single()
+  useEffect(() => {
+    if (!user) {
+      router.push('/auth/login');
+      return;
+    }
 
-  if (doctorError || !doctor) {
-    redirect('/auth/unauthorized')
-  }
+    // Redirigir al dashboard específico según el tipo de usuario y especialidad
+    if (user.role === 'doctor') {
+      const specialtyId = user.specialtyId;
+      const specialty = getSpecialtyById(specialtyId);
+      
+      if (specialty) {
+        // Redirigir al dashboard específico de la especialidad
+        router.push(`/dashboard/${specialtyId}`);
+      } else {
+        // Si no hay especialidad definida, ir a medicina general por defecto
+        router.push('/dashboard/medicina-general');
+      }
+    } else if (user.role === 'patient') {
+      router.push('/patient/dashboard');
+    } else if (user.role === 'clinic') {
+      router.push('/clinic/dashboard');
+    } else if (user.role === 'laboratory') {
+      router.push('/laboratory/dashboard');
+    } else {
+      // Rol no reconocido, redirigir a login
+      router.push('/auth/login');
+    }
+  }, [user, router]);
 
-  return <DashboardLayout />
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+  );
 }

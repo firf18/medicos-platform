@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { AppProvider } from '../providers/AppProvider';
+import { AppProvider } from '@/providers/app/AppProvider';
 
 type ProvidersWrapperProps = {
   children: ReactNode;

@@ -26,7 +26,7 @@ export default function ResetPasswordPage() {
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg">
-              "La mejor plataforma para la gestión médica en Venezuela. Simplificando la atención médica para profesionales y pacientes."
+              &ldquo;La mejor plataforma para la gestión médica en Venezuela. Simplificando la atención médica para profesionales y pacientes.&rdquo;
             </p>
             <footer className="text-sm">Dr. Juan Pérez</footer>
           </blockquote>

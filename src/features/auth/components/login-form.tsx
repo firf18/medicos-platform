@@ -1,10 +1,13 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '../../../components/ui/button';
+import React from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { useAuth } from '@/features/auth/hooks/use-auth'
+import { useToast } from '@/hooks/use-toast'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -12,121 +15,145 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../components/ui/form';
-import { Input } from '../../../components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { createClient } from '@/lib/supabase/client';
-import { loginSchema, LoginFormData } from '@/lib/validations';
-import { AUTH_ROUTES } from '@/lib/routes';
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { useTranslation } from '@/providers/i18n/hooks/use-translation'
+import Link from 'next/link'
+
+const loginSchema = z.object({
+  email: z.string().email('Email inválido').min(1, 'El email es requerido'),
+  password: z.string().min(1, 'La contraseña es requerida'),
+})
+
+type LoginFormValues = z.infer<typeof loginSchema>
 
 export function LoginForm() {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const router = useRouter();
-  const supabase = createClient();
+  const { signIn } = useAuth()
+  const { toast } = useToast()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect')
+  const { t } = useTranslation()
 
-  const form = useForm<LoginFormData>({
+  const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
     },
-  });
+  })
 
-  const onSubmit = async (values: LoginFormData) => {
+  const onSubmit = async (data: LoginFormValues) => {
     try {
-      setIsLoading(true);
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
+      const result = await signIn(data.email, data.password)
 
-      if (error) throw error;
-      
-      // Redirect based on user role
-      const { data: { user } } = await supabase.auth.getUser();
-      const role = user?.user_metadata?.role || 'patient';
-      
-      router.push(role === 'doctor' ? '/dashboard' : '/appointments');
-      
+      if (result.success) {
+        toast({
+          title: t('common.success'),
+          description: t('auth.login.errors.accountNotVerified'), // Este mensaje debería ser de éxito
+        })
+        
+        // Redirigir al dashboard o a la página solicitada
+        router.push(redirect || '/dashboard')
+      } else {
+        toast({
+          title: t('auth.login.errors.invalidCredentials'),
+          description: result.error?.message || t('auth.login.errors.invalidCredentials'),
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
       toast({
-        title: '¡Bienvenido de vuelta!',
-        description: 'Has iniciado sesión correctamente.',
-      });
-    } catch (error: any) {
-      console.error('Error signing in:', error);
-      toast({
-        title: 'Error al iniciar sesión',
-        description: error.message || 'Ocurrió un error al iniciar sesión',
+        title: t('common.error'),
+        description: t('common.error'),
         variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      })
     }
-  };
+  }
+
+  const handleForgotPassword = () => {
+    router.push('/auth/forgot-password')
+  }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Correo electrónico</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="tucorreo@ejemplo.com"
-                    type="email"
-                    disabled={isLoading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel>Contraseña</FormLabel>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0 text-sm"
-                    onClick={() => router.push('/forgot-password')}
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </Button>
-                </div>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="••••••••"
-                    type="password"
-                    disabled={isLoading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <form 
+        onSubmit={form.handleSubmit(onSubmit)} 
+        className="space-y-4"
+        aria-label={t('auth.login.title')}
+      >
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="email">{t('auth.login.email')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="email"
+                  placeholder="email@ejemplo.com" 
+                  {...field} 
+                  autoComplete="email"
+                  aria-describedby="email-error"
+                />
+              </FormControl>
+              <FormMessage id="email-error" />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="password">{t('auth.login.password')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="password"
+                  type="password" 
+                  placeholder="••••••••" 
+                  {...field} 
+                  autoComplete="current-password"
+                  aria-describedby="password-error"
+                />
+              </FormControl>
+              <FormMessage id="password-error" />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="link" 
+            type="button" 
+            onClick={handleForgotPassword} 
+            className="p-0 h-auto font-normal"
+            aria-label={t('auth.login.forgotPassword')}
+          >
+            {t('auth.login.forgotPassword')}
+          </Button>
         </div>
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+
+        <Button 
+          type="submit" 
+          className="w-full"
+          aria-label={t('auth.login.loginButton')}
+        >
+          {t('auth.login.loginButton')}
         </Button>
-        <div className="text-center text-sm">
-          ¿No tienes una cuenta?{' '}
-          <a href={AUTH_ROUTES.REGISTER} className="text-blue-600 hover:underline">
-            Regístrate
-          </a>
+        
+        <div className="text-center text-sm text-muted-foreground">
+          {t('auth.login.noAccount')}{' '}
+          <Link 
+            href="/auth/register" 
+            className="text-primary hover:underline"
+            aria-label={t('auth.login.registerNow')}
+          >
+            {t('auth.login.registerNow')}
+          </Link>
         </div>
       </form>
     </Form>
-  );
+  )
 }

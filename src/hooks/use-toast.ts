@@ -5,7 +5,7 @@ import * as React from "react"
 
 // Simplified toast types
 type ToastProps = {
-  variant?: "default" | "destructive"
+  variant?: "default" | "destructive" | "warning"
   className?: string
 }
 
@@ -23,6 +23,7 @@ type ToasterToast = ToastProps & {
   onOpenChange?: (open: boolean) => void
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",

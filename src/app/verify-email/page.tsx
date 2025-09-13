@@ -22,7 +22,9 @@ export default function VerifyEmailPage() {
         return
       }
 
-      setEmail(session.user.email)
+      if (session.user.email) {
+        setEmail(session.user.email)
+      }
       
       // Si el correo ya está verificado, redirigir al dashboard
       if (session.user.email_confirmed_at) {

@@ -7,7 +7,7 @@ export default function LoginPage() {
       <div className="max-w-4xl w-full space-y-8">
         <div className="text-center">
           <h2 className="text-4xl font-extrabold text-gray-900 mb-2">
-            Bienvenido a MediConsult
+            Bienvenido a Red-Salud
           </h2>
           <p className="text-lg text-gray-600">
             Selecciona tu tipo de cuenta para continuar

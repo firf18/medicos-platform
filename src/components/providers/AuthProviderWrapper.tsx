@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { Toaster } from '../ui/toast-provider';
-import { AuthProvider as SupabaseAuthProvider } from '@/features/auth/contexts/AuthContext';
+import { AuthProvider } from '@/providers/auth';
 
 // Componente de fallback para evitar errores de carga
 const AuthLoadingFallback = () => (
@@ -32,10 +32,10 @@ export function AuthProviderWrapper({ children }: { children: React.ReactNode })
 
   return (
     <Suspense fallback={<AuthLoadingFallback />}>
-      <SupabaseAuthProvider>
+      <AuthProvider>
         {children}
         <Toaster />
-      </SupabaseAuthProvider>
+      </AuthProvider>
     </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import MainNav from '@/components/navigation/main-nav';
@@ -15,7 +15,7 @@ interface ProtectedLayoutProps {
 export default function ProtectedLayout({ 
   children
 }: ProtectedLayoutProps) {
-  const allowedRoles = ['patient', 'doctor', 'admin'];
+  const allowedRoles = useMemo(() => ['patient', 'doctor', 'admin'], []);
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();

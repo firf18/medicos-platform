@@ -1,0 +1,442 @@
+/**
+ * Validaciones Médicas para Registro de Médicos - Red-Salud
+ * 
+ * Este archivo contiene todas las validaciones específicas para el registro
+ * de médicos, cumpliendo con estándares de compliance médico y seguridad.
+ */
+
+import { z } from 'zod';
+import { DoctorRegistrationData } from '@/types/medical/specialties';
+
+// ============================================================================
+// VALIDACIONES DE INFORMACIÓN PERSONAL
+// ============================================================================
+
+export const personalInfoSchema = z.object({
+  firstName: z.string()
+    .min(2, 'El nombre debe tener al menos 2 caracteres')
+    .max(50, 'El nombre no puede exceder 50 caracteres')
+    .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, 'El nombre solo puede contener letras y espacios'),
+  
+  lastName: z.string()
+    .min(2, 'El apellido debe tener al menos 2 caracteres')
+    .max(50, 'El apellido no puede exceder 50 caracteres')
+    .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, 'El apellido solo puede contener letras y espacios'),
+  
+  email: z.string()
+    .email('Formato de email inválido')
+    .min(5, 'El email debe tener al menos 5 caracteres')
+    .max(100, 'El email no puede exceder 100 caracteres')
+    .refine(async (email) => {
+      // Verificar que el email sea único en la base de datos
+      // Esta validación se implementará con Supabase
+      return true;
+    }, 'Este email ya está registrado'),
+  
+  phone: z.string()
+    .regex(/^\+?[1-9]\d{1,14}$/, 'Formato de teléfono inválido')
+    .min(10, 'El teléfono debe tener al menos 10 dígitos')
+    .max(15, 'El teléfono no puede exceder 15 dígitos'),
+  
+  password: z.string()
+    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .max(128, 'La contraseña no puede exceder 128 caracteres')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
+      'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un símbolo especial'),
+  
+  confirmPassword: z.string()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmPassword']
+});
+
+// ============================================================================
+// VALIDACIONES DE INFORMACIÓN PROFESIONAL
+// ============================================================================
+
+export const professionalInfoSchema = z.object({
+  licenseNumber: z.string()
+    .min(6, 'El número de licencia debe tener al menos 6 caracteres')
+    .max(20, 'El número de licencia no puede exceder 20 caracteres')
+    .regex(/^[A-Z0-9-]+$/, 'El número de licencia solo puede contener letras mayúsculas, números y guiones'),
+  
+  licenseState: z.string()
+    .min(2, 'Debe seleccionar un estado')
+    .max(50, 'El estado no puede exceder 50 caracteres'),
+  
+  licenseExpiry: z.string()
+    .refine((date) => {
+      const expiryDate = new Date(date);
+      const today = new Date();
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(today.getFullYear() + 1);
+      
+      return expiryDate > today && expiryDate <= oneYearFromNow;
+    }, 'La licencia debe estar vigente y no expirar en más de un año'),
+  
+  yearsOfExperience: z.number()
+    .min(0, 'Los años de experiencia no pueden ser negativos')
+    .max(50, 'Los años de experiencia no pueden exceder 50 años')
+    .int('Los años de experiencia deben ser un número entero'),
+  
+  currentHospital: z.string()
+    .min(2, 'El nombre del hospital debe tener al menos 2 caracteres')
+    .max(100, 'El nombre del hospital no puede exceder 100 caracteres')
+    .optional(),
+  
+  clinicAffiliations: z.array(z.string())
+    .max(5, 'No puedes tener más de 5 afiliaciones clínicas')
+    .optional(),
+  
+  bio: z.string()
+    .min(100, 'La biografía debe tener al menos 100 caracteres')
+    .max(1000, 'La biografía no puede exceder 1000 caracteres')
+    .refine((bio) => {
+      // Verificar que no contenga información personal inapropiada
+      const inappropriateWords = ['teléfono', 'dirección', 'email personal', 'casa'];
+      return !inappropriateWords.some(word => bio.toLowerCase().includes(word));
+    }, 'La biografía no debe contener información de contacto personal')
+});
+
+// ============================================================================
+// VALIDACIONES DE ESPECIALIDAD MÉDICA
+// ============================================================================
+
+export const specialtySelectionSchema = z.object({
+  specialtyId: z.string()
+    .min(1, 'Debe seleccionar una especialidad médica'),
+  
+  subSpecialties: z.array(z.string())
+    .max(3, 'No puedes seleccionar más de 3 sub-especialidades')
+    .optional(),
+  
+  selectedFeatures: z.array(z.string())
+    .min(1, 'Debe seleccionar al menos una característica del dashboard')
+    .max(10, 'No puedes seleccionar más de 10 características')
+});
+
+// ============================================================================
+// VALIDACIONES DE VERIFICACIÓN DE IDENTIDAD
+// ============================================================================
+
+export const identityVerificationSchema = z.object({
+  identityVerification: z.object({
+    verificationId: z.string()
+      .min(1, 'ID de verificación requerido'),
+    
+    status: z.enum(['pending', 'verified', 'failed'])
+      .refine((status) => status === 'verified', 'La verificación de identidad debe estar completada'),
+    
+    documentType: z.string()
+      .min(1, 'Tipo de documento requerido'),
+    
+    documentNumber: z.string()
+      .min(5, 'Número de documento inválido')
+      .max(20, 'Número de documento inválido'),
+    
+    verifiedAt: z.string()
+      .refine((date) => {
+        const verifiedDate = new Date(date);
+        const today = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        return verifiedDate >= thirtyDaysAgo && verifiedDate <= today;
+      }, 'La verificación debe ser reciente (máximo 30 días)'),
+    
+    verificationResults: z.object({
+      faceMatch: z.boolean()
+        .refine((match) => match === true, 'La verificación facial debe ser exitosa'),
+      
+      documentValid: z.boolean()
+        .refine((valid) => valid === true, 'El documento debe ser válido'),
+      
+      livenessCheck: z.boolean()
+        .refine((liveness) => liveness === true, 'La verificación de vida debe ser exitosa'),
+      
+      amlScreening: z.boolean()
+        .refine((aml) => aml === true, 'El screening AML debe ser exitoso')
+    })
+  })
+});
+
+// ============================================================================
+// VALIDACIONES DE CONFIGURACIÓN DEL DASHBOARD
+// ============================================================================
+
+export const dashboardConfigurationSchema = z.object({
+  selectedFeatures: z.array(z.string())
+    .min(1, 'Debe seleccionar al menos una característica')
+    .max(10, 'No puede seleccionar más de 10 características'),
+  
+  workingHours: z.object({
+    monday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    }),
+    tuesday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    }),
+    wednesday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    }),
+    thursday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    }),
+    friday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    }),
+    saturday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    }),
+    sunday: z.object({
+      isWorkingDay: z.boolean(),
+      startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional(),
+      endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido').optional()
+    })
+  }).refine((hours) => {
+    // Verificar que al menos un día tenga horarios configurados
+    const workingDays = Object.values(hours).filter(day => day.isWorkingDay);
+    return workingDays.length > 0;
+  }, 'Debe configurar al menos un día de trabajo')
+});
+
+// ============================================================================
+// VALIDACIÓN COMPLETA DEL REGISTRO
+// ============================================================================
+
+export const completeDoctorRegistrationSchema = z.object({
+  // Información personal
+  firstName: personalInfoSchema.shape.firstName,
+  lastName: personalInfoSchema.shape.lastName,
+  email: personalInfoSchema.shape.email,
+  phone: personalInfoSchema.shape.phone,
+  password: personalInfoSchema.shape.password,
+  confirmPassword: personalInfoSchema.shape.confirmPassword,
+  
+  // Información profesional
+  licenseNumber: professionalInfoSchema.shape.licenseNumber,
+  licenseState: professionalInfoSchema.shape.licenseState,
+  licenseExpiry: professionalInfoSchema.shape.licenseExpiry,
+  yearsOfExperience: professionalInfoSchema.shape.yearsOfExperience,
+  currentHospital: professionalInfoSchema.shape.currentHospital,
+  clinicAffiliations: professionalInfoSchema.shape.clinicAffiliations,
+  bio: professionalInfoSchema.shape.bio,
+  
+  // Especialidad
+  specialtyId: specialtySelectionSchema.shape.specialtyId,
+  subSpecialties: specialtySelectionSchema.shape.subSpecialties,
+  
+  // Verificación de identidad
+  identityVerification: identityVerificationSchema.shape.identityVerification,
+  
+  // Configuración del dashboard
+  selectedFeatures: dashboardConfigurationSchema.shape.selectedFeatures,
+  workingHours: dashboardConfigurationSchema.shape.workingHours
+});
+
+// ============================================================================
+// FUNCIONES DE VALIDACIÓN ESPECÍFICAS
+// ============================================================================
+
+/**
+ * Valida si un número de licencia médica es único en el sistema
+ */
+export async function validateUniqueLicenseNumber(licenseNumber: string): Promise<boolean> {
+  try {
+    // Esta función se implementará con Supabase
+    // Por ahora retorna true para desarrollo
+    return true;
+  } catch (error) {
+    console.error('Error validando número de licencia:', error);
+    return false;
+  }
+}
+
+/**
+ * Valida si un email es único en el sistema
+ */
+export async function validateUniqueEmail(email: string): Promise<boolean> {
+  try {
+    // Esta función se implementará con Supabase
+    // Por ahora retorna true para desarrollo
+    return true;
+  } catch (error) {
+    console.error('Error validando email:', error);
+    return false;
+  }
+}
+
+/**
+ * Valida la coherencia entre especialidad y años de experiencia
+ */
+export function validateSpecialtyExperience(specialtyId: string, yearsOfExperience: number): boolean {
+  // Especialidades que requieren más experiencia
+  const highExperienceSpecialties = ['cardiology', 'neurology', 'oncology', 'surgery'];
+  
+  if (highExperienceSpecialties.includes(specialtyId)) {
+    return yearsOfExperience >= 5;
+  }
+  
+  return yearsOfExperience >= 1;
+}
+
+/**
+ * Valida la coherencia entre especialidad y características seleccionadas
+ */
+export function validateSpecialtyFeatures(specialtyId: string, selectedFeatures: string[]): boolean {
+  // Características requeridas por especialidad
+  const requiredFeatures: Record<string, string[]> = {
+    'cardiology': ['patient_management', 'medical_records'],
+    'neurology': ['patient_management', 'medical_records', 'lab_integration'],
+    'oncology': ['patient_management', 'medical_records', 'lab_integration', 'appointment_scheduling'],
+    'surgery': ['patient_management', 'medical_records', 'appointment_scheduling']
+  };
+  
+  const required = requiredFeatures[specialtyId] || ['patient_management'];
+  
+  return required.every(feature => selectedFeatures.includes(feature));
+}
+
+/**
+ * Valida la configuración de horarios de trabajo
+ */
+export function validateWorkingHours(workingHours: DoctorRegistrationData['workingHours']): boolean {
+  const days = Object.values(workingHours);
+  
+  // Debe tener al menos un día de trabajo
+  const workingDays = days.filter(day => day.isWorkingDay);
+  if (workingDays.length === 0) {
+    return false;
+  }
+  
+  // Validar que los horarios sean coherentes
+  for (const day of workingDays) {
+    if (day.startTime && day.endTime) {
+      const start = new Date(`2000-01-01T${day.startTime}`);
+      const end = new Date(`2000-01-01T${day.endTime}`);
+      
+      if (start >= end) {
+        return false;
+      }
+      
+      // Verificar que no sea más de 12 horas de trabajo
+      const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      if (diffHours > 12) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
+// ============================================================================
+// FUNCIONES DE SEGURIDAD Y COMPLIANCE
+// ============================================================================
+
+/**
+ * Registra eventos de seguridad para auditoría
+ */
+export function logSecurityEvent(eventType: string, data: Record<string, any>) {
+  const securityEvent = {
+    eventType,
+    timestamp: new Date().toISOString(),
+    data,
+    severity: 'info' as const,
+    source: 'doctor_registration'
+  };
+  
+  console.log('[SECURITY]', securityEvent);
+  
+  // En producción, enviar a servicio de auditoría
+  if (process.env.NODE_ENV === 'production') {
+    // Implementar envío a servicio de auditoría
+  }
+}
+
+/**
+ * Valida que los datos no contengan información sensible
+ */
+export function validateDataSensitivity(data: Partial<DoctorRegistrationData>): boolean {
+  const sensitiveFields = ['ssn', 'taxId', 'bankAccount', 'creditCard'];
+  const dataString = JSON.stringify(data).toLowerCase();
+  
+  return !sensitiveFields.some(field => dataString.includes(field));
+}
+
+/**
+ * Sanitiza datos de entrada para prevenir inyecciones
+ */
+export function sanitizeInput(input: string): string {
+  return input
+    .replace(/[<>]/g, '') // Remover HTML tags
+    .replace(/['"]/g, '') // Remover comillas
+    .replace(/[;]/g, '') // Remover punto y coma
+    .trim();
+}
+
+/**
+ * Valida el formato de contraseña según estándares médicos
+ */
+export function validatePasswordStrength(password: string): {
+  isValid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  
+  if (password.length < 8) {
+    errors.push('La contraseña debe tener al menos 8 caracteres');
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    errors.push('La contraseña debe contener al menos una letra mayúscula');
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    errors.push('La contraseña debe contener al menos una letra minúscula');
+  }
+  
+  if (!/\d/.test(password)) {
+    errors.push('La contraseña debe contener al menos un número');
+  }
+  
+  if (!/[@$!%*?&]/.test(password)) {
+    errors.push('La contraseña debe contener al menos un símbolo especial');
+  }
+  
+  // Verificar que no contenga información personal común
+  const commonPatterns = ['123', 'abc', 'password', 'doctor', 'medical'];
+  if (commonPatterns.some(pattern => password.toLowerCase().includes(pattern))) {
+    errors.push('La contraseña no debe contener patrones comunes');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+// ============================================================================
+// EXPORTACIONES PRINCIPALES
+// ============================================================================
+
+// Los schemas ya están exportados individualmente arriba
+
+export type PersonalInfoValidation = z.infer<typeof personalInfoSchema>;
+export type ProfessionalInfoValidation = z.infer<typeof professionalInfoSchema>;
+export type SpecialtySelectionValidation = z.infer<typeof specialtySelectionSchema>;
+export type IdentityVerificationValidation = z.infer<typeof identityVerificationSchema>;
+export type DashboardConfigurationValidation = z.infer<typeof dashboardConfigurationSchema>;
+export type CompleteDoctorRegistrationValidation = z.infer<typeof completeDoctorRegistrationSchema>;

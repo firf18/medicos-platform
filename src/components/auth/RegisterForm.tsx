@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 
 type UserRole = 'patient' | 'doctor';
 

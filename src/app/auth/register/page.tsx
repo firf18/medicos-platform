@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { UserPlus, Stethoscope, Heart, Building, FlaskConical, ArrowRight, ArrowLeft } from 'lucide-react'
@@ -9,13 +8,8 @@ export default function RegisterPage() {
   const router = useRouter()
 
   const handleUserTypeSelection = (userType: 'doctor' | 'patient' | 'clinic' | 'laboratory') => {
-    // For now, we'll redirect to the specialized registration page
-    // In the future, we can implement a unified form
-    if (userType === 'clinic' || userType === 'laboratory') {
-      router.push(`/auth/register/specialized`)
-    } else {
-      router.push(`/auth/register/${userType}`)
-    }
+    // Redirect to specialized registration pages for each user type
+    router.push(`/auth/register/${userType}`)
   }
 
   return (
@@ -26,7 +20,7 @@ export default function RegisterPage() {
             <UserPlus className="h-8 w-8 text-indigo-600" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Únete a MediConsult
+            Únete a Red-Salud
           </h2>
           <p className="mt-2 text-center text-lg text-gray-600">
             Selecciona el tipo de cuenta que necesitas

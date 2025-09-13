@@ -1,0 +1,35 @@
+# Cloudflare Pages Configuration
+# Configuración para despliegue en Cloudflare Pages
+
+# Build settings
+build_command = "npm run build"
+build_output_directory = "out"
+root_directory = "/"
+
+# Environment variables
+[env.production]
+NEXT_PUBLIC_SUPABASE_URL = "https://zonmvugejshdstymfdva.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvbm12dWdlanNoZHN0eW1mZHZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMjE4OTQsImV4cCI6MjA3MjU5Nzg5NH0.MWyU7xDmAr5EsR661nwSC1q7D90I1_oQUhwGqtlJd6k"
+NEXT_PUBLIC_SITE_URL = "https://red-salud.org"
+NEXT_PUBLIC_DOMAIN = "red-salud.org"
+DIDIT_API_KEY = "f-zcERxhkl36e9BgfRm22XR_TUiROSLROuS7BlwRItM"
+DIDIT_WEBHOOK_SECRET = "NplZn8ap277JVQUxE6K3Ta9JlruolpnNfGzaBuAB0Ck"
+DIDIT_BASE_URL = "https://api.didit.me"
+NODE_ENV = "production"
+NEXT_PUBLIC_APP_ENV = "production"
+
+# Custom headers for security
+[[headers]]
+for = "/*"
+[headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"
+X-XSS-Protection = "1; mode=block"
+Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+# Redirects for SPA
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200

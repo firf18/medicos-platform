@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/providers/auth';
 import { CheckCircle, ArrowRight, FlaskConical, User, FileText } from 'lucide-react';
+import { InsertTables } from '@/types/database.types';
+
+type LaboratoryData = InsertTables<'laboratories'>;
 
 export default function LaboratorySetupWizardPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     lab_name: '',
     lab_description: '',
@@ -22,14 +27,14 @@ export default function LaboratorySetupWizardPage() {
   
   const router = useRouter();
   const supabase = createClient();
+  const { user, refreshAuth } = useAuth();
 
   useEffect(() => {
     checkUserRole();
-  }, []);
+  }, [checkUserRole]);
 
-  const checkUserRole = async () => {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session) {
+  const checkUserRole = useCallback(async () => {
+    if (!user) {
       router.push('/auth/login');
       return;
     }
@@ -38,13 +43,13 @@ export default function LaboratorySetupWizardPage() {
     const { data: laboratory, error: laboratoryError } = await supabase
       .from('laboratories')
       .select('id')
-      .eq('id', session.session.user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (laboratoryError || !laboratory) {
       router.push('/unauthorized');
     }
-  }
+  }, [user, router, supabase]);
 
   const handleNext = () => {
     if (currentStep < 3) {
@@ -59,38 +64,46 @@ export default function LaboratorySetupWizardPage() {
   }
 
   const handleFinish = async () => {
+    if (!user) return;
+
     setLoading(true);
-    
+    setError(null);
+
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) throw new Error('No hay sesión activa');
+      // Crear o actualizar el perfil del laboratorio en la tabla laboratories
+      const labData: LaboratoryData = {
+        user_id: user.id,
+        name: formData.lab_name,
+        description: formData.lab_description || '',
+        address: formData.lab_address || '',
+        city: formData.lab_city || '',
+        state: formData.lab_state || '',
+        country: formData.lab_country || '',
+        phone: formData.lab_phone || '',
+        email: formData.lab_email || '',
+        website: formData.lab_website || ''
+      };
 
-      // Actualizar información del laboratorio
-      const { error } = await supabase
+      const { error: labError } = await supabase
         .from('laboratories')
-        .update({
-          name: formData.lab_name,
-          description: formData.lab_description || null,
-          address: formData.lab_address || null,
-          city: formData.lab_city || null,
-          state: formData.lab_state || null,
-          country: formData.lab_country || null,
-          phone: formData.lab_phone || null,
-          email: formData.lab_email || null,
-          website: formData.lab_website || null,
-        })
-        .eq('id', session.session.user.id);
+        .upsert(labData as any, {
+          onConflict: 'user_id'
+        });
 
-      if (error) throw error;
+      if (labError) throw labError;
 
+      // Actualizar el contexto de autenticación
+      await refreshAuth();
+      
+      // Redirigir al dashboard del laboratorio
       router.push('/laboratory/dashboard');
-    } catch (error) {
-      console.error('Error updating laboratory info:', error);
-      alert('Error al guardar la información. Por favor intenta de nuevo.');
+    } catch (err) {
+      console.error('Error completing setup:', err);
+      setError('Error al completar la configuración. Por favor, inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const steps = [
     { id: 1, name: 'Información Básica', icon: FlaskConical },
@@ -147,6 +160,22 @@ export default function LaboratorySetupWizardPage() {
               ))}
             </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Step Content */}
           <div className="space-y-6">

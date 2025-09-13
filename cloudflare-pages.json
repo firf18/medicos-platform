@@ -1,0 +1,11 @@
+{
+  "build": {
+    "command": "npm run build",
+    "cwd": "/",
+    "watch_dir": "src"
+  },
+  "environment_variables": {
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_APP_ENV": "production"
+  }
+}

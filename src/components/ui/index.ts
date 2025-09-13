@@ -24,3 +24,4 @@ export {
   TableCell,
   TableCaption,
 } from './table'
+export { Alert, AlertTitle, AlertDescription } from './alert'

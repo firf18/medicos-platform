@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 
 export default function ForgotPasswordForm() {
   const [email, setEmail] = useState('');

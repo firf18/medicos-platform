@@ -1,12 +1,15 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/lib/database.types'
+import Logger from '@/lib/logger'
+
+const logger = new Logger({ level: 'debug', prefix: 'Supabase' })
 
 // Función para limpiar cookies corruptas de Supabase
 const clearCorruptedCookies = () => {
   if (typeof window === 'undefined') return;
   
   try {
-    console.log('🔍 Checking for corrupted auth state...');
+    logger.debug('Checking for corrupted auth state');
     
     // Limpiar localStorage corrupto
     let cleanedLocalStorage = 0;
@@ -17,12 +20,12 @@ const clearCorruptedCookies = () => {
           if (value && (value.startsWith('base64-') || value.includes('"base64-'))) {
             localStorage.removeItem(key);
             cleanedLocalStorage++;
-            console.log(`🧹 Removed corrupted localStorage: ${key}`);
+            logger.debug(`Removed corrupted localStorage: ${key}`);
           }
         } catch (e) {
           localStorage.removeItem(key);
           cleanedLocalStorage++;
-          console.log(`🧹 Removed invalid localStorage: ${key}`);
+          logger.debug(`Removed invalid localStorage: ${key}`);
         }
       }
     });
@@ -38,24 +41,24 @@ const clearCorruptedCookies = () => {
           if (value && (value.startsWith('base64-') || value.includes('"base64-'))) {
             document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
             cleanedCookies++;
-            console.log(`🧹 Removed corrupted cookie: ${name}`);
+            logger.debug(`Removed corrupted cookie: ${name}`);
           }
         } catch (e) {
           document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
           cleanedCookies++;
-          console.log(`🧹 Removed invalid cookie: ${name}`);
+          logger.debug(`Removed invalid cookie: ${name}`);
         }
       }
     });
     
     if (cleanedLocalStorage > 0 || cleanedCookies > 0) {
-      console.log(`✅ Cleaned ${cleanedLocalStorage} localStorage items and ${cleanedCookies} cookies`);
+      logger.info(`Cleaned ${cleanedLocalStorage} localStorage items and ${cleanedCookies} cookies`);
     } else {
-      console.log('✅ No corrupted auth state found');
+      logger.debug('No corrupted auth state found');
     }
     
   } catch (error) {
-    console.error('❌ Error cleaning corrupted auth state:', error);
+    logger.error('Error cleaning corrupted auth state:', error);
   }
 };
 
@@ -73,11 +76,11 @@ const validateEnvironment = () => {
   }
   
   if (!url.includes('supabase.co') && !url.includes('localhost')) {
-    console.warn('⚠️ Unusual Supabase URL detected:', url);
+    logger.warn('Unusual Supabase URL detected:', url);
   }
   
   if (key.length < 100) {
-    console.warn('⚠️ Unusually short Supabase anon key');
+    logger.warn('Unusually short Supabase anon key');
   }
   
   return { url, key };
@@ -100,9 +103,9 @@ export const createClient = () => {
     // Limpiar cookies corruptas antes de crear el cliente
     clearCorruptedCookies();
     
-    console.log('🔧 Creating Supabase client...');
-    console.log('🌐 URL:', url);
-    console.log('🔑 Key:', key.substring(0, 20) + '...');
+    logger.debug('Creating Supabase client');
+    logger.debug('URL:', url);
+    logger.debug('Key:', key.substring(0, 20) + '...');
     
     supabaseClient = createBrowserClient<Database>(url, key, {
       cookieOptions: {
@@ -121,32 +124,32 @@ export const createClient = () => {
       }
     });
     
-    console.log('✅ Supabase client created successfully');
+    logger.info('Supabase client created successfully');
     
     // Agregar listener para errores de auth
     supabaseClient.auth.onAuthStateChange((event, session) => {
-      console.log('🔐 Auth state changed:', event, session ? 'Session active' : 'No session');
+      logger.debug('Auth state changed:', event, session ? 'Session active' : 'No session');
       
       if (event === 'SIGNED_OUT') {
-        console.log('👋 User signed out');
+        logger.info('User signed out');
       } else if (event === 'SIGNED_IN') {
-        console.log('👤 User signed in:', session?.user?.email);
+        logger.info('User signed in:', session?.user?.email);
       } else if (event === 'TOKEN_REFRESHED') {
-        console.log('🔄 Token refreshed');
+        logger.debug('Token refreshed');
       }
     });
     
     return supabaseClient;
     
   } catch (error) {
-    console.error('❌ Failed to create Supabase client:', error);
+    logger.error('Failed to create Supabase client:', error);
     throw error;
   }
 };
 
 // Función para resetear el cliente (útil para testing)
 export const resetClient = () => {
-  console.log('🔄 Resetting Supabase client...');
+  logger.debug('Resetting Supabase client');
   supabaseClient = null;
   clearCorruptedCookies();
 };

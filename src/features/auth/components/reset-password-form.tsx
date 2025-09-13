@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '../../../components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -12,12 +12,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../components/ui/form';
-import { Input } from '../../../components/ui/input';
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { resetPasswordSchema, ResetPasswordFormData } from '@/lib/validations';
 import { AUTH_ROUTES } from '@/lib/routes';
+import { AuthLoadingState } from '@/features/auth/components/auth-loading-state';
+import { PostgrestError } from '@supabase/supabase-js';
 
 export function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +46,7 @@ export function ResetPasswordForm() {
         
         setEmail(data.user?.email || '');
         setIsValidLink(true);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error verificando el token:', error);
         setIsValidLink(false);
         
@@ -99,11 +101,12 @@ export function ResetPasswordForm() {
         router.push('/login');
       }, 2000);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resetting password:', error);
+      const errorMessage = (error as PostgrestError).message || 'Ocurrió un error al actualizar tu contraseña';
       toast({
         title: 'Error al actualizar la contraseña',
-        description: error.message || 'Ocurrió un error al actualizar tu contraseña',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -111,13 +114,12 @@ export function ResetPasswordForm() {
     }
   };
 
+  if (isLoading) {
+    return <AuthLoadingState message="Actualizando contraseña..." variant="default" />;
+  }
+
   if (isValidLink === null) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-4">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-        <p className="text-muted-foreground">Verificando enlace de recuperación...</p>
-      </div>
-    );
+    return <AuthLoadingState message="Verificando enlace de recuperación..." variant="verification" />;
   }
 
   if (!isValidLink) {

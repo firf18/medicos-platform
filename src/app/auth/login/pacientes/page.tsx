@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/features/auth/contexts/AuthContext' // Usar el AuthContext correcto
+import { useAuth } from '@/providers/auth'
 import { Heart, Eye, EyeOff } from 'lucide-react'
 
 export default function PacientesLoginPage() {
@@ -38,9 +38,9 @@ export default function PacientesLoginPage() {
       // Si es paciente irá a /patient/dashboard, si es doctor irá a /doctor/dashboard
       router.push('/patient/dashboard');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error en login:', error);
-      setError(error.message || 'Error al iniciar sesión')
+      setError(error instanceof Error ? error.message : 'Error al iniciar sesión')
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ClinicStats } from '@/components/clinic-dashboard/ClinicStats';
@@ -16,7 +16,7 @@ interface Doctor {
 }
 
 export default function ClinicDashboardPage() {
-  const { user, isAuthenticated, isClinic } = useAuth();
+  const { isAuthenticated, isClinic } = useAuth();
   const router = useRouter();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
 

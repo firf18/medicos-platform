@@ -1,276 +1,259 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '../../../components/ui/button';
+import React from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { useAuth } from '@/features/auth/hooks/use-auth'
+import { useToast } from '@/hooks/use-toast'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../components/ui/form';
-import { Input } from '../../../components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/features/auth/contexts/AuthContext';
-import { AUTH_ROUTES } from '@/lib/routes';
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
+} from '@/components/ui/select'
+import { useTranslation } from '@/providers/i18n/hooks/use-translation'
+import Link from 'next/link'
 
-// Definir los roles permitidos
-const roleEnum = z.enum(['patient', 'doctor', 'clinic', 'laboratory']);
+const registerSchema = z
+  .object({
+    firstName: z.string().min(1, 'El nombre es requerido'),
+    lastName: z.string().min(1, 'El apellido es requerido'),
+    email: z.string().email('Email inválido').min(1, 'El email es requerido'),
+    role: z.enum(['patient', 'doctor', 'clinic', 'laboratory']),
+    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+    confirmPassword: z.string().min(1, 'Por favor confirma tu contraseña'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  })
 
-// Esquema de validación del formulario
-const formSchema = z.object({
-  email: z.string()
-    .email('Ingresa un correo electrónico válido')
-    .min(1, 'El correo electrónico es requerido'),
-  password: z.string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/,
-      'La contraseña debe contener al menos una mayúscula, una minúscula y un número'
-    ),
-  confirmPassword: z.string().min(1, 'Confirma tu contraseña'),
-  firstName: z.string()
-    .min(2, 'El nombre debe tener al menos 2 caracteres')
-    .max(50, 'El nombre no puede tener más de 50 caracteres'),
-  lastName: z.string()
-    .min(2, 'El apellido debe tener al menos 2 caracteres')
-    .max(50, 'El apellido no puede tener más de 50 caracteres'),
-  role: roleEnum,
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Las contraseñas no coinciden',
-  path: ['confirmPassword'],
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type RegisterFormValues = z.infer<typeof registerSchema>
 
 export function RegisterForm() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const { toast } = useToast();
-  const { signUp } = useAuth();
+  const { signUp } = useAuth()
+  const { toast } = useToast()
+  const router = useRouter()
+  const { t } = useTranslation()
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
       firstName: '',
       lastName: '',
+      email: '',
       role: 'patient',
+      password: '',
+      confirmPassword: '',
     },
-  });
+  })
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (data: RegisterFormValues) => {
     try {
-      setIsLoading(true);
-      
-      // Registrar al usuario con Supabase
-      const { error } = await signUp(values.email, values.password, {
-        first_name: values.firstName,
-        last_name: values.lastName,
-        role: values.role,
-      });
+      const result = await signUp(data.email, data.password, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+      })
 
-      if (error) throw error;
-      
-      // Si no hay error, asumimos que el registro fue exitoso
-      // y redirigimos a la página de verificación de correo
+      if (result.success) {
+        toast({
+          title: t('common.success'),
+          description: t('auth.verifyEmail.codeSent', { email: data.email }),
+        })
+        router.push('/auth/verify-email')
+      } else {
+        toast({
+          title: 'Error en el registro',
+          description: (result.error as any)?.message || 'Ocurrió un error inesperado',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
       toast({
-        title: '¡Registro exitoso!',
-        description: 'Por favor verifica tu correo electrónico para continuar.',
-      });
-      router.push(AUTH_ROUTES.VERIFY_EMAIL);
-      
-    } catch (error: any) {
-      console.error('Error al registrar:', error);
-      toast({
-        title: 'Error',
-        description: 'Ocurrió un error al crear tu cuenta. Por favor, inténtalo de nuevo.',
+        title: t('common.error'),
+        description: t('common.error'),
         variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      })
     }
-  };
+  }
 
   return (
     <Form {...form}>
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombres</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Tus nombres"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Apellidos</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Tus apellidos"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Correo electrónico</FormLabel>
+      <form 
+        onSubmit={form.handleSubmit(onSubmit as any)} 
+        className="space-y-4"
+        aria-label={t('auth.register.title')}
+      >
+        <FormField
+          control={form.control as any}
+          name="firstName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="firstName">{t('auth.register.firstName')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="firstName"
+                  placeholder={t('auth.register.firstName')} 
+                  {...field} 
+                  autoComplete="given-name"
+                  aria-describedby="firstName-error"
+                />
+              </FormControl>
+              <FormMessage id="firstName-error" />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="lastName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="lastName">{t('auth.register.lastName')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="lastName"
+                  placeholder={t('auth.register.lastName')} 
+                  {...field} 
+                  autoComplete="family-name"
+                  aria-describedby="lastName-error"
+                />
+              </FormControl>
+              <FormMessage id="lastName-error" />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="email">{t('auth.register.email')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="email"
+                  placeholder="email@ejemplo.com" 
+                  {...field} 
+                  autoComplete="email"
+                  aria-describedby="email-error"
+                />
+              </FormControl>
+              <FormMessage id="email-error" />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="role"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="role">{t('auth.register.role')}</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+                aria-describedby="role-error"
+              >
                 <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="tucorreo@ejemplo.com"
-                    type="email"
-                    disabled={isLoading}
-                  />
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder={t('auth.register.role')} />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo de cuenta</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un tipo de cuenta" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="patient">Paciente</SelectItem>
-                    <SelectItem value="doctor">Médico</SelectItem>
-                    <SelectItem value="clinic">Clínica</SelectItem>
-                    <SelectItem value="laboratory">Laboratorio</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contraseña</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="••••••••"
-                      type="password"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirmar contraseña</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="••••••••"
-                      type="password"
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
-        
-        <div className="space-y-4">
-          <Button 
+                <SelectContent>
+                  <SelectItem value="patient">{t('auth.register.patient')}</SelectItem>
+                  <SelectItem value="doctor">{t('auth.register.doctor')}</SelectItem>
+                  <SelectItem value="clinic">{t('auth.register.clinic')}</SelectItem>
+                  <SelectItem value="laboratory">{t('auth.register.laboratory')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                {t('auth.register.roleDescription')}
+              </FormDescription>
+              <FormMessage id="role-error" />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="password">{t('auth.register.password')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="password"
+                  type="password" 
+                  placeholder="••••••••" 
+                  {...field} 
+                  autoComplete="new-password"
+                  aria-describedby="password-error"
+                />
+              </FormControl>
+              <FormDescription>
+                {t('validation.minLength', { min: 6 })}
+              </FormDescription>
+              <FormMessage id="password-error" />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="confirmPassword">{t('auth.register.confirmPassword')}</FormLabel>
+              <FormControl>
+                <Input 
+                  id="confirmPassword"
+                  type="password" 
+                  placeholder="••••••••" 
+                  {...field} 
+                  autoComplete="new-password"
+                  aria-describedby="confirmPassword-error"
+                />
+              </FormControl>
+              <FormMessage id="confirmPassword-error" />
+            </FormItem>
+          )}
+        />
+
+        <Button 
           type="submit" 
-          className="w-full" 
-          disabled={isLoading}
+          className="w-full"
+          aria-label={t('auth.register.registerButton')}
         >
-          {isLoading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Creando cuenta...
-            </>
-          ) : 'Crear cuenta'}
+          {t('auth.register.registerButton')}
         </Button>
-          
-          <div className="text-center text-sm">
-            ¿Ya tienes una cuenta?{' '}
-            <a href={AUTH_ROUTES.LOGIN} className="text-blue-600 hover:underline">
-              Inicia sesión
-            </a>
-          </div>
+        
+        <div className="text-center text-sm text-muted-foreground">
+          {t('auth.register.haveAccount')}{' '}
+          <Link 
+            href="/auth/login" 
+            className="text-primary hover:underline"
+            aria-label={t('auth.register.loginNow')}
+          >
+            {t('auth.register.loginNow')}
+          </Link>
         </div>
       </form>
     </Form>
-  );
+  )
 }

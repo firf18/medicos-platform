@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -23,17 +23,22 @@ const publicNavItems: NavItem[] = [
 const protectedNavItems: Record<UserRole, NavItem[]> = {
   admin: [
     { title: 'Dashboard', href: PROTECTED_ROUTES.ADMIN.DASHBOARD, icon: '📊' },
+    { title: 'Búsqueda', href: '/search', icon: '🔍' },
     { title: 'Usuarios', href: PROTECTED_ROUTES.ADMIN.USERS, icon: '👥' },
     { title: 'Reportes', href: PROTECTED_ROUTES.ADMIN.REPORTS, icon: '📈' },
   ],
   doctor: [
     { title: 'Inicio', href: PROTECTED_ROUTES.DOCTOR.DASHBOARD, icon: '🏠' },
+    { title: 'Búsqueda', href: '/search', icon: '🔍' },
+    { title: 'Chat', href: '/chat', icon: '💬' },
     { title: 'Citas', href: PROTECTED_ROUTES.DOCTOR.APPOINTMENTS, icon: '📅' },
     { title: 'Pacientes', href: PROTECTED_ROUTES.DOCTOR.PATIENTS, icon: '👥' },
     { title: 'Historial', href: PROTECTED_ROUTES.DOCTOR.RECORDS, icon: '📋' },
   ],
   patient: [
     { title: 'Inicio', href: PROTECTED_ROUTES.PATIENT.DASHBOARD, icon: '🏠' },
+    { title: 'Búsqueda', href: '/search', icon: '🔍' },
+    { title: 'Chat', href: '/chat', icon: '💬' },
     { title: 'Mis Citas', href: PROTECTED_ROUTES.PATIENT.APPOINTMENTS, icon: '📅' },
     { title: 'Médicos', href: PROTECTED_ROUTES.PATIENT.DOCTORS, icon: '👨\u200d⚕️' },
     { title: 'Historial', href: PROTECTED_ROUTES.PATIENT.RECORDS, icon: '📋' },

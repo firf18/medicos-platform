@@ -1,0 +1,6 @@
+# Redirecciones para SPA
+/*    /index.html   200
+
+# Redirecciones específicas
+/auth/*    /auth/*   200
+/api/*     /api/*    200

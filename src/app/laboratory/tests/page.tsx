@@ -1,14 +1,13 @@
 'use client';
 
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FlaskConical, Plus, Search, Edit, Trash2, FileText } from 'lucide-react';
+import { FlaskConical, Plus, Search, Edit, Trash2 } from 'lucide-react';
 
 interface Test {
   id: string;
@@ -19,7 +18,7 @@ interface Test {
 }
 
 export default function LaboratoryTestsPage() {
-  const { user, isAuthenticated, isLaboratory } = useAuth();
+  const { isAuthenticated, isLaboratory } = useAuth();
   const router = useRouter();
   const [tests, setTests] = useState<Test[]>([]);
   const [searchTerm, setSearchTerm] = useState('');

@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'doctor' | 'patient';
+  requiredRole?: 'admin' | 'doctor' | 'patient' | 'clinic' | 'laboratory';
   redirectTo?: string;
 };
 
@@ -15,7 +15,7 @@ export default function ProtectedRoute({
   requiredRole, 
   redirectTo = '/login' 
 }: ProtectedRouteProps) {
-  const { user, isAdmin, isDoctor, isPatient, isLoading } = useAuth();
+  const { user, isAdmin, isDoctor, isPatient, isClinic, isLaboratory, isLoading } = useAuth();
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -34,7 +34,9 @@ export default function ProtectedRoute({
       const hasRequiredRole = 
         (requiredRole === 'admin' && isAdmin) ||
         (requiredRole === 'doctor' && isDoctor) ||
-        (requiredRole === 'patient' && isPatient);
+        (requiredRole === 'patient' && isPatient) ||
+        (requiredRole === 'clinic' && isClinic) ||
+        (requiredRole === 'laboratory' && isLaboratory);
 
       if (!hasRequiredRole) {
         // Redirigir al dashboard correspondiente según el rol del usuario
@@ -44,6 +46,10 @@ export default function ProtectedRoute({
           router.push('/doctor/dashboard');
         } else if (isPatient) {
           router.push('/patient/dashboard');
+        } else if (isClinic) {
+          router.push('/clinic/dashboard');
+        } else if (isLaboratory) {
+          router.push('/laboratory/dashboard');
         } else {
           // Si el usuario no tiene un rol válido, redirigir a la página de inicio
           router.push('/');
@@ -54,7 +60,7 @@ export default function ProtectedRoute({
     
     // Si llegamos aquí, el usuario está autorizado
     setIsAuthorized(true);
-  }, [user, isAdmin, isDoctor, isPatient, isLoading, requiredRole, router, redirectTo]);
+  }, [user, isAdmin, isDoctor, isPatient, isClinic, isLaboratory, isLoading, requiredRole, router, redirectTo]);
 
   // Mostrar estado de carga mientras se verifica la autenticación
   if (isLoading || isAuthorized === null) {

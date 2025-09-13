@@ -1,12 +1,11 @@
 'use client';
 
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Search, Upload, Download, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
@@ -22,7 +21,7 @@ interface LabResult {
 }
 
 export default function LaboratoryResultsPage() {
-  const { user, isAuthenticated, isLaboratory } = useAuth();
+  const { isAuthenticated, isLaboratory } = useAuth();
   const router = useRouter();
   const [results, setResults] = useState<LabResult[]>([]);
   const [searchTerm, setSearchTerm] = useState('');

@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/providers/auth';
 import { CheckCircle, ArrowRight, Building, User, FileText } from 'lucide-react';
+import { InsertTables } from '@/types/database.types';
+
+type ClinicData = InsertTables<'clinics'>;
 
 export default function ClinicSetupWizardPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     clinic_name: '',
     clinic_description: '',
@@ -22,14 +27,14 @@ export default function ClinicSetupWizardPage() {
   
   const router = useRouter();
   const supabase = createClient();
+  const { user, refreshAuth } = useAuth();
 
   useEffect(() => {
     checkUserRole();
-  }, []);
+  }, [checkUserRole]);
 
-  const checkUserRole = async () => {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session) {
+  const checkUserRole = useCallback(async () => {
+    if (!user) {
       router.push('/auth/login');
       return;
     }
@@ -38,13 +43,13 @@ export default function ClinicSetupWizardPage() {
     const { data: clinic, error: clinicError } = await supabase
       .from('clinics')
       .select('id')
-      .eq('id', session.session.user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (clinicError || !clinic) {
       router.push('/unauthorized');
     }
-  }
+  }, [user, router, supabase]);
 
   const handleNext = () => {
     if (currentStep < 3) {
@@ -59,38 +64,46 @@ export default function ClinicSetupWizardPage() {
   }
 
   const handleFinish = async () => {
+    if (!user) return;
+
     setLoading(true);
-    
+    setError(null);
+
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) throw new Error('No hay sesión activa');
+      // Crear o actualizar el perfil de la clínica en la tabla clinics
+      const clinicData: ClinicData = {
+        user_id: user.id,
+        name: formData.clinic_name,
+        description: formData.clinic_description || '',
+        address: formData.clinic_address || '',
+        city: formData.clinic_city || '',
+        state: formData.clinic_state || '',
+        country: formData.clinic_country || '',
+        phone: formData.clinic_phone || '',
+        email: formData.clinic_email || '',
+        website: formData.clinic_website || ''
+      };
 
-      // Actualizar información de la clínica
-      const { error } = await supabase
+      const { error: clinicError } = await supabase
         .from('clinics')
-        .update({
-          name: formData.clinic_name,
-          description: formData.clinic_description || null,
-          address: formData.clinic_address || null,
-          city: formData.clinic_city || null,
-          state: formData.clinic_state || null,
-          country: formData.clinic_country || null,
-          phone: formData.clinic_phone || null,
-          email: formData.clinic_email || null,
-          website: formData.clinic_website || null,
-        })
-        .eq('id', session.session.user.id);
+        .upsert(clinicData as any, {
+          onConflict: 'user_id'
+        });
 
-      if (error) throw error;
+      if (clinicError) throw clinicError;
 
+      // Actualizar el contexto de autenticación
+      await refreshAuth();
+      
+      // Redirigir al dashboard de la clínica
       router.push('/clinic/dashboard');
-    } catch (error) {
-      console.error('Error updating clinic info:', error);
-      alert('Error al guardar la información. Por favor intenta de nuevo.');
+    } catch (err) {
+      console.error('Error completing setup:', err);
+      setError('Error al completar la configuración. Por favor, inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const steps = [
     { id: 1, name: 'Información Básica', icon: Building },
@@ -147,6 +160,22 @@ export default function ClinicSetupWizardPage() {
               ))}
             </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Step Content */}
           <div className="space-y-6">

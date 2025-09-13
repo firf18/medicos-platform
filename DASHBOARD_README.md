@@ -1,4 +1,4 @@
-# Dashboard de Médicos - MediConsult
+# Dashboard de Médicos - Red-Salud
 
 ## 🎉 ¡Dashboard de Pacientes Completado!
 

@@ -1,0 +1,138 @@
+{
+  "auth": {
+    "login": {
+      "title": "Iniciar Sesión",
+      "email": "Correo Electrónico",
+      "password": "Contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "loginButton": "Iniciar Sesión",
+      "noAccount": "¿No tienes una cuenta?",
+      "registerNow": "Regístrate ahora",
+      "errors": {
+        "invalidCredentials": "Credenciales inválidas",
+        "accountNotVerified": "Cuenta no verificada"
+      }
+    },
+    "register": {
+      "title": "Crear Cuenta",
+      "firstName": "Nombre(s)",
+      "lastName": "Apellido(s)",
+      "email": "Correo Electrónico",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar Contraseña",
+      "role": "Tipo de Cuenta",
+      "patient": "Paciente",
+      "doctor": "Médico",
+      "clinic": "Clínica",
+      "laboratory": "Laboratorio",
+      "registerButton": "Crear Cuenta",
+      "haveAccount": "¿Ya tienes una cuenta?",
+      "loginNow": "Inicia sesión",
+      "errors": {
+        "passwordMismatch": "Las contraseñas no coinciden",
+        "weakPassword": "La contraseña es muy débil"
+      }
+    },
+    "forgotPassword": {
+      "title": "Recuperar Contraseña",
+      "description": "Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.",
+      "email": "Correo Electrónico",
+      "sendLink": "Enviar Enlace",
+      "backToLogin": "Volver al inicio de sesión"
+    },
+    "resetPassword": {
+      "title": "Restablecer Contraseña",
+      "newPassword": "Nueva Contraseña",
+      "confirmPassword": "Confirmar Contraseña",
+      "updatePassword": "Actualizar Contraseña",
+      "backToLogin": "Volver al inicio de sesión"
+    },
+    "verifyEmail": {
+      "title": "Verificar Correo Electrónico",
+      "description": "Ingresa el código de verificación que enviamos a tu correo electrónico.",
+      "code": "Código de Verificación",
+      "verifyButton": "Verificar",
+      "resendCode": "Reenviar Código",
+      "codeSent": "Código enviado a {email}"
+    },
+    "resendVerification": {
+      "title": "Reenviar Verificación",
+      "description": "Ingresa tu correo electrónico y te enviaremos un nuevo código de verificación.",
+      "email": "Correo Electrónico",
+      "resendButton": "Reenviar Código"
+    },
+    "session": {
+      "sessionExpired": "Sesión Expirada",
+      "sessionExpiring": "Sesión a Punto de Expirar",
+      "logoutAllTabs": "Cerrar Sesión en Todas las Pestañas"
+    }
+  },
+  "dashboard": {
+    "patient": {
+      "title": "Panel del Paciente",
+      "appointments": "Citas",
+      "medications": "Medicamentos",
+      "healthMetrics": "Métricas de Salud",
+      "medicalHistory": "Historial Médico",
+      "emergencyContacts": "Contactos de Emergencia"
+    },
+    "doctor": {
+      "title": "Panel del Médico",
+      "patients": "Pacientes",
+      "appointments": "Citas",
+      "medicalRecords": "Registros Médicos",
+      "prescriptions": "Recetas"
+    },
+    "clinic": {
+      "title": "Panel de la Clínica",
+      "doctors": "Médicos",
+      "patients": "Pacientes",
+      "appointments": "Citas"
+    },
+    "laboratory": {
+      "title": "Panel del Laboratorio",
+      "tests": "Pruebas",
+      "results": "Resultados",
+      "patients": "Pacientes"
+    }
+  },
+  "common": {
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "view": "Ver",
+    "close": "Cerrar",
+    "success": "Éxito",
+    "error": "Error",
+    "warning": "Advertencia",
+    "info": "Información",
+    "actions": "Acciones",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "refresh": "Actualizar",
+    "logout": "Cerrar Sesión",
+    "profile": "Perfil",
+    "settings": "Configuración",
+    "notifications": "Notificaciones",
+    "language": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés"
+  },
+  "validation": {
+    "required": "Este campo es requerido",
+    "invalidEmail": "Correo electrónico inválido",
+    "minLength": "Debe tener al menos {min} caracteres",
+    "maxLength": "No debe exceder {max} caracteres",
+    "passwordMismatch": "Las contraseñas no coinciden"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "patient": "Paciente",
+    "doctor": "Médico",
+    "clinic": "Clínica",
+    "laboratory": "Laboratorio"
+  }
+}

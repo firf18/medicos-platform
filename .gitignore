@@ -9,8 +9,8 @@ yarn-error.log*
 out/
 
 # Environment variables
-.env.local
-.env.development.local
+#.env.local
+#.env.development.local
 .env.test.local
 .env.production.local
 
@@ -20,6 +20,13 @@ out/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Build cache
+.turbo/
+
+# Environment variables
+.env*.local
+!.env.local.example
 
 # IDE
 .vscode/

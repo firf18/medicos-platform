@@ -1,11 +1,69 @@
 {
   "version": 2,
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_SUPABASE_URL": "${NEXT_PUBLIC_SUPABASE_URL}",
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm ci",
+  "devCommand": "npm run dev",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://zonmvugejshdstymfdva.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvbm12dWdlanNoZHN0eW1mZHZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMjE4OTQsImV4cCI6MjA3MjU5Nzg5NH0.MWyU7xDmAr5EsR661nwSC1q7D90I1_oQUhwGqtlJd6k",
+    "NEXT_PUBLIC_SITE_URL": "https://red-salud.org",
+    "NEXT_PUBLIC_DOMAIN": "red-salud.org",
+    "DIDIT_API_KEY": "f-zcERxhkl36e9BgfRm22XR_TUiROSLROuS7BlwRItM",
+    "DIDIT_WEBHOOK_SECRET": "NplZn8ap277JVQUxE6K3Ta9JlruolpnNfGzaBuAB0Ck",
+    "DIDIT_BASE_URL": "https://api.didit.me",
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_APP_ENV": "production"
+  },
+  "functions": {
+    "app/api/**/*.ts": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 30
     }
   },
-  "public": "public",
-  "outputDirectory": ".next"
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.didit.me;"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/auth/:path*",
+      "destination": "/auth/:path*",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/webhooks/didit",
+      "destination": "/api/webhooks/didit"
+    }
+  ]
 }

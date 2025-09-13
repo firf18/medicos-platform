@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { LaboratoryStats } from '@/components/laboratory-dashboard/LaboratoryStats';
@@ -16,7 +16,7 @@ interface TestResult {
 }
 
 export default function LaboratoryDashboardPage() {
-  const { user, isAuthenticated, isLaboratory } = useAuth();
+  const { isAuthenticated, isLaboratory } = useAuth();
   const router = useRouter();
   const [testResults, setTestResults] = useState<TestResult[]>([]);
 

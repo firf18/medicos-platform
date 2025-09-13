@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Database } from '@/lib/database.types'
@@ -26,9 +26,9 @@ export default function SetupWizardPage() {
   useEffect(() => {
     fetchSpecialties()
     checkUserRole()
-  }, [])
+  }, [checkUserRole, fetchSpecialties])
 
-  const checkUserRole = async () => {
+  const checkUserRole = useCallback(async () => {
     const { data: session } = await supabase.auth.getSession()
     if (!session.session) {
       router.push('/auth/login')
@@ -72,9 +72,9 @@ export default function SetupWizardPage() {
       // No es ninguno de los roles esperados
       router.push('/unauthorized')
     }
-  }
+  }, [router]);
 
-  const fetchSpecialties = async () => {
+  const fetchSpecialties = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('specialties')
@@ -86,7 +86,7 @@ export default function SetupWizardPage() {
     } catch (error) {
       console.error('Error fetching specialties:', error)
     }
-  }
+  }, []);
 
   const handleNext = () => {
     if (currentStep < 3) {

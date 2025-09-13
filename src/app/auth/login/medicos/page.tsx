@@ -48,7 +48,7 @@ export default function MedicosLoginPage() {
         .eq('id', data.user.id)
         .single()
 
-      const config = doctorConfig as any
+      const config = doctorConfig as { specialty_id?: string; license_number?: string } | null
       const needsSetup = !config || 
                         !config.specialty_id || 
                         (config.license_number && config.license_number.startsWith('TEMP-'))
@@ -58,8 +58,8 @@ export default function MedicosLoginPage() {
       } else {
         router.push('/doctor/dashboard')
       }
-    } catch (error: any) {
-      setError(error.message)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setLoading(false)
     }

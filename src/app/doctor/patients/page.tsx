@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import PatientsSection from '@/components/dashboard/sections/PatientsSection';
-import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAuth } from '@/providers/auth';
 
 export default function DoctorPatientsPage() {
   const { user, isLoading } = useAuth();

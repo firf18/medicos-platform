@@ -1,0 +1,912 @@
+---
+description: "Comprehensive development rules for Platform Médicos - A large-scale medical platform with strict compliance requirements"
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.sql", "**/*.md"]
+alwaysApply: true
+---
+
+# 📋 Reglas y Buenas Prácticas - Platform Médicos
+
+> **CRÍTICO**: Esta es una plataforma médica que maneja datos sensibles de salud. Todas las reglas deben seguirse estrictamente para garantizar compliance, seguridad y escalabilidad.
+
+## 🎯 Principios Fundamentales
+
+### 1. 🔒 Seguridad y Compliance Médico (CRÍTICO)
+- **HIPAA-Style Compliance**: Todos los datos médicos deben estar protegidos y auditados
+- **Zero Trust**: Verificar permisos en cada operación, nunca confiar en datos del cliente
+- **Data Minimization**: Solicitar y procesar solo datos estrictamente necesarios
+- **Audit Trail**: Registrar todas las operaciones críticas para auditoría
+- **Encryption**: Datos sensibles encriptados en tránsito y en reposo
+
+```typescript
+// ✅ Correcto - Verificación de permisos granular
+const canAccessMedicalRecord = await checkPermissions(userId, recordId, 'read');
+if (!canAccessMedicalRecord) {
+  logSecurityEvent('unauthorized_access_attempt', { userId, recordId });
+  throw new UnauthorizedError('Acceso denegado');
+}
+```
+
+### 2. 🏗️ Arquitectura Escalable por Features
+- **Domain-Driven Design**: Organizar código por dominio médico (auth, appointments, records, chat)
+- **Bounded Contexts**: Cada feature es independiente y cohesiva
+- **Clean Architecture**: Separación clara entre UI, business logic y data access
+- **Vertical Slicing**: Features completas (UI + API + DB) en módulos independientes
+
+### 3. 📏 Responsabilidad Única Estricta
+- **Máximo 300 líneas por archivo** (reducido para mejor mantenimiento)
+- **Un propósito por archivo**: Cada archivo debe tener una responsabilidad clara
+- **Separation of Concerns**: UI, lógica de negocio y datos completamente separados
+- **Single Source of Truth**: Cada pieza de información tiene una fuente autoritativa
+
+## 🏗️ Estructura de Archivos (Arquitectura Multi-Rol)
+
+### Organización por Dominios Médicos
+```
+src/
+├── app/                    # Next.js 15 App Router
+│   ├── (auth)/            # Autenticación y verificación
+│   ├── (protected)/       # Rutas protegidas con múltiples roles
+│   ├── doctor/            # Dashboard y funciones para médicos
+│   ├── patient/           # Portal y dashboard para pacientes
+│   ├── clinic/            # Gestión para clínicas
+│   ├── laboratory/        # Gestión para laboratorios
+│   ├── admin/             # Administración del sistema
+│   ├── chat/              # Sistema de comunicación en tiempo real
+│   ├── search/            # Búsqueda avanzada global
+│   └── api/               # API endpoints
+├── components/            # Componentes por dominio médico
+│   ├── auth/             # Autenticación y verificación
+│   ├── dashboard/        # Dashboards especializados
+│   ├── patient-dashboard/# Dashboard específico de pacientes
+│   ├── clinic-dashboard/ # Dashboard específico de clínicas
+│   ├── laboratory-dashboard/ # Dashboard específico de laboratorios
+│   ├── chat/             # Componentes de chat médico
+│   ├── search/           # Búsqueda avanzada
+│   ├── ui/               # Componentes reutilizables del design system
+│   └── navigation/       # Navegación multi-rol
+├── features/             # Features por dominio médico
+│   ├── auth/            # Sistema de autenticación completo
+│   ├── appointments/    # Gestión de citas médicas
+│   ├── medical-records/ # Historiales médicos
+│   ├── emergency/       # Sistemas de emergencia
+│   ├── notifications/   # Notificaciones médicas críticas
+│   └── compliance/      # Herramientas de compliance
+├── lib/                 # Configuraciones y utilidades
+│   ├── supabase/       # Cliente Supabase con RLS
+│   ├── validations.ts  # Validaciones médicas específicas
+│   ├── logger.ts       # Logging estructurado para auditoría
+│   └── constants.ts    # Constantes del dominio médico
+├── hooks/              # Hooks personalizados del dominio
+├── types/              # Tipos TypeScript por dominio
+│   ├── auth/          # Tipos de autenticación
+│   ├── dashboard/     # Tipos de dashboards
+│   ├── database/      # Tipos de base de datos médica
+│   └── shared/        # Tipos compartidos
+├── providers/         # Providers de contexto especializados
+├── test/             # Suite de testing automatizado
+└── middleware.ts     # Middleware de protección de rutas
+```
+
+### Convenciones de Nomenclatura Médica
+- **Componentes**: PascalCase con sufijo de dominio (`MedicalRecordForm.tsx`, `EmergencyContactsList.tsx`)
+- **Hooks**: camelCase médico específico (`useMedicalHistory.ts`, `useEmergencyContacts.ts`)
+- **Utilidades**: camelCase descriptivo (`validateMedicalID.ts`, `formatDiagnosis.ts`)
+- **Constantes médicas**: UPPER_SNAKE_CASE (`MEDICAL_SPECIALTIES.ts`, `EMERGENCY_PROTOCOLS.ts`)
+- **Rutas**: kebab-case (`patient-dashboard/`, `emergency-contacts/`)
+
+## 📝 Reglas de Código TypeScript Estricto
+
+### TypeScript para Datos Médicos
+- **Tipos explícitos obligatorios**: Todos los datos médicos deben estar tipados
+- **Strict mode activado**: `"strict": true` en tsconfig.json
+- **No usar `any`**: Usar tipos específicos o `unknown` para datos médicos
+- **Union types para estados médicos**: Usar enums para estados críticos
+- **Zod para validación runtime**: Validar datos médicos en runtime
+
+```typescript
+// ✅ Correcto - Tipos médicos explícitos
+interface MedicalRecord {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  diagnosis: string;
+  treatment: string;
+  medications: Medication[];
+  allergies: Allergy[];
+  vitalSigns: VitalSigns;
+  emergencyContacts: EmergencyContact[];
+  confidentialityLevel: 'public' | 'restricted' | 'confidential' | 'secret';
+  lastModified: Date;
+  lastModifiedBy: string;
+}
+
+// ✅ Validación con Zod para datos críticos
+const MedicalRecordSchema = z.object({
+  diagnosis: z.string().min(10).max(500),
+  medications: z.array(MedicationSchema),
+  allergies: z.array(AllergySchema),
+  confidentialityLevel: z.enum(['public', 'restricted', 'confidential', 'secret'])
+});
+
+// ❌ Incorrecto - Datos médicos sin tipar
+const record: any = getMedicalRecord(); // NUNCA
+```
+
+### Componentes React para Interfaces Médicas
+- **Functional components únicamente**: No class components
+- **Props inmutables**: Nunca mutar props médicas
+- **Memoización selectiva**: Solo componentes de alta carga (listas de pacientes, historiales)
+- **Error boundaries obligatorios**: Capturar errores en interfaces críticas
+- **Accessibility compliance**: WCAG 2.1 AA para interfaces médicas
+
+```typescript
+// ✅ Estructura correcta de componente médico
+import { memo, useCallback, useEffect } from 'react';
+import { logSecurityEvent } from '@/lib/logger';
+
+interface MedicalRecordViewProps {
+  record: MedicalRecord;
+  canEdit: boolean;
+  onUpdate: (record: Partial<MedicalRecord>) => Promise<void>;
+  onSecurityEvent: (event: SecurityEvent) => void;
+}
+
+const MedicalRecordView = memo<MedicalRecordViewProps>(({ 
+  record, 
+  canEdit, 
+  onUpdate, 
+  onSecurityEvent 
+}) => {
+  // Audit trail - registrar visualización
+  useEffect(() => {
+    logSecurityEvent('medical_record_viewed', {
+      recordId: record.id,
+      patientId: record.patientId,
+      timestamp: new Date().toISOString()
+    });
+  }, [record.id, record.patientId]);
+
+  const handleUpdate = useCallback(async (updates: Partial<MedicalRecord>) => {
+    try {
+      await onUpdate(updates);
+      logSecurityEvent('medical_record_updated', {
+        recordId: record.id,
+        updatedFields: Object.keys(updates)
+      });
+    } catch (error) {
+      onSecurityEvent({ type: 'update_failed', error, recordId: record.id });
+    }
+  }, [record.id, onUpdate, onSecurityEvent]);
+
+  return (
+    <div className="medical-record-view" role="region" aria-label="Registro médico">
+      {/* Contenido del componente */}
+    </div>
+  );
+});
+
+MedicalRecordView.displayName = 'MedicalRecordView';
+export default MedicalRecordView;
+```
+
+## 🔐 Autenticación y Seguridad Multi-Rol
+
+### Supabase Auth con RLS Granular
+- **Row Level Security obligatorio**: Todas las tablas médicas con RLS
+- **Políticas granulares**: Verificar permisos específicos por rol y contexto
+- **Functions con SECURITY DEFINER**: Funciones de BD con search_path fijo
+- **Rate limiting**: Protección contra ataques de fuerza bruta
+- **Session recovery**: Manejo robusto de sesiones expiradas
+
+```typescript
+// ✅ Verificación de permisos granular
+const hasAccess = await supabase.rpc('check_medical_record_access', {
+  p_user_id: user.id,
+  p_record_id: recordId,
+  p_action: 'read',
+  p_context: 'emergency' // contexto adicional para emergencias
+});
+
+// ✅ Políticas RLS específicas por rol
+-- En migration SQL
+CREATE POLICY "doctors_read_patients" ON medical_records
+  FOR SELECT USING (
+    auth.role() = 'doctor' AND 
+    doctor_id = auth.uid() OR
+    EXISTS (
+      SELECT 1 FROM appointments 
+      WHERE patient_id = medical_records.patient_id 
+      AND doctor_id = auth.uid()
+      AND status = 'active'
+    )
+  );
+```
+
+### Protección de Rutas Multi-Nivel
+- **Middleware de Next.js**: Primera línea de defensa
+- **AuthGuard components**: Verificación granular en componentes
+- **Role-based access**: Verificar roles específicos por contexto
+- **Emergency access**: Protocolos especiales para emergencias médicas
+
+```typescript
+// ✅ Middleware con protección multi-rol
+export async function middleware(request: NextRequest) {
+  const { session, role } = await verifySession(request);
+  
+  if (!session) {
+    return redirectToLogin(request);
+  }
+
+  // Verificación específica por ruta médica
+  if (request.nextUrl.pathname.startsWith('/doctor/')) {
+    if (role !== 'doctor') {
+      logSecurityEvent('unauthorized_doctor_access', { 
+        userId: session.user.id, 
+        attemptedPath: request.nextUrl.pathname 
+      });
+      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
+    }
+  }
+
+  // Protección especial para datos críticos
+  if (request.nextUrl.pathname.includes('/emergency/')) {
+    const hasEmergencyAccess = await verifyEmergencyAccess(session.user.id);
+    if (!hasEmergencyAccess) {
+      return NextResponse.redirect(new URL('/auth/insufficient-privileges', request.url));
+    }
+  }
+
+  return NextResponse.next();
+}
+```
+
+## 🎨 UI/UX para Interfaces Médicas
+
+### Tailwind CSS con Design System Médico
+- **Accessibility-first**: WCAG 2.1 AA compliance obligatorio
+- **Color coding médico**: Colores específicos para urgencias, warnings, success
+- **High contrast**: Garantizar legibilidad en entornos médicos
+- **Mobile-first responsive**: Diseño para dispositivos médicos diversos
+
+### Componentes UI Especializados
+- **Radix UI**: Base accesible para componentes complejos
+- **Shadcn/ui**: Design system consistente adaptado al dominio médico
+- **Loading states**: Estados de carga para operaciones críticas
+- **Error states**: Manejo de errores user-friendly pero informativo
+
+```typescript
+// ✅ Componente con variants médicos
+const alertVariants = cva(
+  "border px-4 py-3 rounded-md",
+  {
+    variants: {
+      variant: {
+        emergency: "bg-red-50 border-red-200 text-red-800",
+        warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
+        success: "bg-green-50 border-green-200 text-green-800",
+        info: "bg-blue-50 border-blue-200 text-blue-800",
+        critical: "bg-red-100 border-red-300 text-red-900 animate-pulse"
+      },
+      urgency: {
+        low: "",
+        medium: "border-2",
+        high: "border-4 shadow-lg",
+        critical: "border-4 shadow-xl animate-bounce"
+      }
+    }
+  }
+);
+```
+
+## 📊 Manejo de Datos Médicos
+
+### React Query para Estado del Servidor Médico
+- **Invalidación inteligente**: Cache invalidation para datos críticos
+- **Background updates**: Actualizaciones en tiempo real para datos vitales
+- **Error retry logic**: Reintentos específicos para operaciones médicas
+- **Optimistic updates**: Solo para operaciones no críticas
+
+```typescript
+// ✅ Query médica con invalidación automática
+const { data: medicalRecords, isLoading, error } = useQuery({
+  queryKey: ['medicalRecords', patientId, { includeEmergency: true }],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from('medical_records')
+      .select(`
+        *,
+        medications (*),
+        allergies (*),
+        emergency_contacts (*)
+      `)
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      logSecurityEvent('medical_record_access_error', { patientId, error });
+      throw error;
+    }
+    
+    return data;
+  },
+  staleTime: 5 * 60 * 1000, // 5 minutos para datos médicos
+  refetchInterval: 30 * 1000, // Actualizar cada 30 segundos
+  refetchOnWindowFocus: true, // Crítico para datos médicos actualizados
+});
+
+// ✅ Mutation con audit trail
+const updateMedicalRecord = useMutation({
+  mutationFn: async (updates: Partial<MedicalRecord>) => {
+    const { data, error } = await supabase
+      .from('medical_records')
+      .update({
+        ...updates,
+        last_modified: new Date().toISOString(),
+        last_modified_by: user.id
+      })
+      .eq('id', recordId)
+      .select();
+      
+    if (error) throw error;
+    return data;
+  },
+  onSuccess: () => {
+    // Invalidar queries relacionadas
+    queryClient.invalidateQueries(['medicalRecords', patientId]);
+    queryClient.invalidateQueries(['patientSummary', patientId]);
+    
+    logSecurityEvent('medical_record_updated', {
+      recordId,
+      patientId,
+      updatedBy: user.id
+    });
+  },
+  onError: (error) => {
+    logSecurityEvent('medical_record_update_failed', {
+      recordId,
+      patientId,
+      error: error.message
+    });
+  }
+});
+```
+
+### Zustand para Estado Global Médico
+- **Estado mínimo**: Solo datos críticos compartidos
+- **Persistence selectiva**: Solo datos no sensibles en localStorage
+- **State splitting**: Separar estado por dominio médico
+- **Security boundaries**: No almacenar datos médicos sensibles
+
+```typescript
+// ✅ Store médico seguro
+interface MedicalAppState {
+  currentPatient: { id: string; name: string } | null; // Solo datos básicos
+  activeEmergency: boolean;
+  notifications: MedicalNotification[];
+  userPreferences: UserPreferences;
+}
+
+const useMedicalStore = create<MedicalAppState>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        currentPatient: null,
+        activeEmergency: false,
+        notifications: [],
+        userPreferences: {},
+        
+        setCurrentPatient: (patient) => {
+          logSecurityEvent('patient_context_changed', { 
+            previousPatient: get().currentPatient?.id,
+            newPatient: patient?.id 
+          });
+          set({ currentPatient: patient });
+        },
+        
+        triggerEmergency: () => {
+          logSecurityEvent('emergency_triggered', { 
+            userId: get().currentUser?.id,
+            timestamp: new Date().toISOString()
+          });
+          set({ activeEmergency: true });
+        }
+      }),
+      {
+        name: 'medical-app-state',
+        partialize: (state) => ({
+          // Solo persistir datos no sensibles
+          userPreferences: state.userPreferences
+        })
+      }
+    )
+  )
+);
+```
+
+## 🧪 Testing Automatizado con Vitest
+
+### Estrategia de Testing Médico
+- **Testing pyramid**: 70% unit, 20% integration, 10% E2E
+- **Critical path testing**: Flujos médicos críticos 100% cubiertos
+- **Security testing**: Verificar permisos y validaciones
+- **Accessibility testing**: Compliance WCAG automático
+
+```typescript
+// ✅ Test de componente médico
+describe('MedicalRecordForm', () => {
+  it('should validate medical data before submission', async () => {
+    const mockPatient = createMockPatient();
+    const mockOnSubmit = vi.fn();
+    
+    render(
+      <MedicalRecordForm 
+        patient={mockPatient} 
+        onSubmit={mockOnSubmit} 
+      />
+    );
+    
+    // Probar validación de diagnóstico
+    const diagnosisInput = screen.getByLabelText(/diagnóstico/i);
+    await user.type(diagnosisInput, 'Dx'); // Muy corto
+    
+    const submitButton = screen.getByRole('button', { name: /guardar/i });
+    await user.click(submitButton);
+    
+    // Verificar que no se envía con datos inválidos
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/diagnóstico debe tener al menos/i)).toBeInTheDocument();
+  });
+
+  it('should log security events on form submission', async () => {
+    const mockLogSecurityEvent = vi.spyOn(logger, 'logSecurityEvent');
+    
+    // ... setup y acciones del test
+    
+    expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+      'medical_record_created',
+      expect.objectContaining({
+        patientId: mockPatient.id,
+        createdBy: mockUser.id
+      })
+    );
+  });
+});
+
+// ✅ Test de hook médico
+describe('useMedicalHistory', () => {
+  it('should handle unauthorized access gracefully', async () => {
+    const mockUnauthorizedUser = createMockUser({ role: 'patient' });
+    
+    const { result } = renderHook(() => 
+      useMedicalHistory('other-patient-id'), {
+        wrapper: ({ children }) => (
+          <AuthProvider user={mockUnauthorizedUser}>
+            {children}
+          </AuthProvider>
+        )
+      }
+    );
+    
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy();
+      expect(result.current.error?.message).toContain('Unauthorized');
+    });
+  });
+});
+```
+
+### Configuración de Testing
+```javascript
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    coverage: {
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        '**/*.d.ts',
+        '**/*.config.*'
+      ],
+      thresholds: {
+        global: {
+          statements: 80,
+          branches: 75,
+          functions: 80,
+          lines: 80
+        },
+        // Cobertura más alta para módulos críticos
+        'src/features/auth/**': {
+          statements: 95,
+          branches: 90
+        },
+        'src/features/emergency/**': {
+          statements: 95,
+          branches: 95
+        }
+      }
+    }
+  }
+});
+```
+
+## ⚠️ Manejo de Errores Médicos
+
+### Error Boundaries Especializados
+- **Medical Error Boundary**: Capturar errores en interfaces médicas
+- **Fallback UI informativo**: Mostrar información útil sin exponer datos
+- **Error reporting**: Integración con servicio de monitoreo médico
+- **Recovery mechanisms**: Recuperación automática cuando sea posible
+
+```typescript
+// ✅ Error Boundary médico
+class MedicalErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, errorInfo: error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Log crítico para errores médicos
+    logSecurityEvent('critical_medical_error', {
+      error: error.message,
+      componentStack: errorInfo.componentStack,
+      userId: this.props.user?.id,
+      patientId: this.props.currentPatient?.id,
+      timestamp: new Date().toISOString(),
+      severity: 'critical'
+    });
+
+    // Reportar a servicio de monitoreo
+    if (process.env.NODE_ENV === 'production') {
+      reportMedicalError(error, {
+        user: this.props.user,
+        context: 'medical_interface',
+        additionalInfo: errorInfo
+      });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="medical-error-fallback">
+          <h2>Error en la aplicación médica</h2>
+          <p>Se ha producido un error inesperado. El personal técnico ha sido notificado.</p>
+          <Button 
+            onClick={() => window.location.reload()}
+            variant="outline"
+          >
+            Recargar aplicación
+          </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <details className="mt-4">
+              <summary>Detalles del error (solo en desarrollo)</summary>
+              <pre>{this.state.errorInfo?.message}</pre>
+            </details>
+          )}
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+### Logging Estructurado para Auditoría
+```typescript
+// ✅ Logger médico con niveles de auditoría
+interface MedicalLogEvent {
+  eventType: 'access' | 'modification' | 'security' | 'emergency' | 'compliance';
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  userId?: string;
+  patientId?: string;
+  resourceId?: string;
+  action: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+class MedicalLogger {
+  logMedicalEvent(event: MedicalLogEvent) {
+    const enhancedEvent = {
+      ...event,
+      timestamp: new Date().toISOString(),
+      sessionId: getCurrentSessionId(),
+      environment: process.env.NODE_ENV
+    };
+
+    // Log local para desarrollo
+    console.log(`[MEDICAL] ${event.severity.toUpperCase()}: ${event.action}`, enhancedEvent);
+
+    // En producción, enviar a servicio de auditoría
+    if (process.env.NODE_ENV === 'production') {
+      sendToAuditService(enhancedEvent);
+    }
+
+    // Para eventos críticos, notificar inmediatamente
+    if (event.severity === 'critical') {
+      notifySecurityTeam(enhancedEvent);
+    }
+  }
+}
+
+export const medicalLogger = new MedicalLogger();
+```
+
+## 📈 Performance y Escalabilidad Médica
+
+### Next.js 15 Optimizations
+- **Server Components**: Usar para datos médicos no interactivos
+- **Client Components**: Solo cuando necesite interactividad
+- **Code splitting**: Lazy loading para dashboards especializados
+- **Image optimization**: Optimizar imágenes médicas (rayos X, etc.)
+
+```typescript
+// ✅ Code splitting por rol médico
+const DoctorDashboard = dynamic(() => import('@/features/doctor/DoctorDashboard'), {
+  loading: () => <DashboardSkeleton role="doctor" />,
+  ssr: false // Evitar hidration mismatch con datos sensibles
+});
+
+const PatientPortal = dynamic(() => import('@/features/patient/PatientPortal'), {
+  loading: () => <PortalSkeleton role="patient" />
+});
+
+// ✅ Server component para datos médicos estáticos
+async function MedicalRecordSummary({ patientId }: { patientId: string }) {
+  const record = await getMedicalRecord(patientId); // Server-side fetch
+  
+  return (
+    <div className="medical-summary">
+      <h3>Resumen Médico</h3>
+      {/* Render estático de datos médicos */}
+    </div>
+  );
+}
+```
+
+### Database Performance
+- **Indexes médicos**: Optimizar consultas frecuentes
+- **RLS optimization**: Políticas eficientes sin N+1 queries
+- **Connection pooling**: Gestión eficiente de conexiones
+- **Query optimization**: Seleccionar solo campos necesarios
+
+```sql
+-- ✅ Indexes específicos para consultas médicas
+CREATE INDEX idx_medical_records_patient_date 
+ON medical_records (patient_id, created_at DESC);
+
+CREATE INDEX idx_appointments_doctor_date 
+ON appointments (doctor_id, appointment_date) 
+WHERE status = 'scheduled';
+
+CREATE INDEX idx_emergency_contacts_patient 
+ON emergency_contacts (patient_id) 
+WHERE is_active = true;
+
+-- ✅ Función RLS optimizada
+CREATE OR REPLACE FUNCTION check_medical_access(
+  user_id uuid,
+  patient_id uuid,
+  access_type text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  -- Caché de verificaciones frecuentes
+  RETURN EXISTS (
+    SELECT 1 FROM user_permissions_cache 
+    WHERE user_id = $1 
+    AND patient_id = $2 
+    AND access_type = $3
+    AND expires_at > NOW()
+  );
+END;
+$$;
+```
+
+## 🚀 Deployment y CI/CD Médico
+
+### Vercel Configuration
+```javascript
+// vercel.json
+{
+  "functions": {
+    "app/api/**": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Environment Configuration
+```bash
+# .env.local.example
+# SUPABASE CONFIGURATION (REQUIRED)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# MEDICAL COMPLIANCE
+MEDICAL_AUDIT_ENDPOINT=https://audit.yourcompany.com
+HIPAA_COMPLIANCE_MODE=true
+ENCRYPTION_KEY=your_encryption_key_here
+
+# ENVIRONMENT
+NODE_ENV=production
+NEXT_PUBLIC_SITE_URL=https://yourmedicalplatform.com
+
+# SECURITY
+RATE_LIMIT_ENABLED=true
+SESSION_TIMEOUT_MINUTES=30
+MAX_LOGIN_ATTEMPTS=3
+```
+
+## 📚 Documentación Médica
+
+### Requisitos de Documentación
+- **Medical API Documentation**: Documentar endpoints médicos con OpenAPI
+- **Compliance Documentation**: Documentar medidas de compliance
+- **Security Procedures**: Procedimientos de seguridad documentados
+- **Emergency Protocols**: Protocolos de emergencia claros
+
+### Comentarios JSDoc Médicos
+```typescript
+/**
+ * Creates a new medical record with full audit trail
+ * 
+ * @param patientId - UUID of the patient (validated against permissions)
+ * @param doctorId - UUID of the creating doctor
+ * @param recordData - Medical record data (validated with Zod schema)
+ * @returns Promise resolving to created medical record
+ * 
+ * @throws {UnauthorizedError} When doctor lacks permission to create records for patient
+ * @throws {ValidationError} When medical data fails validation
+ * @throws {ComplianceError} When action violates medical compliance rules
+ * 
+ * @compliance This function logs all creation attempts for HIPAA audit trail
+ * @security Validates permissions before any database operation
+ * 
+ * @example
+ * ```typescript
+ * const record = await createMedicalRecord(
+ *   'patient-uuid',
+ *   'doctor-uuid',
+ *   {
+ *     diagnosis: 'Hypertension',
+ *     treatment: 'ACE inhibitors',
+ *     medications: [...],
+ *     confidentialityLevel: 'restricted'
+ *   }
+ * );
+ * ```
+ */
+async function createMedicalRecord(
+  patientId: string,
+  doctorId: string,
+  recordData: MedicalRecordInput
+): Promise<MedicalRecord> {
+  // Implementation
+}
+```
+
+## 🔄 Git Workflow Médico
+
+### Conventional Commits para Aplicaciones Médicas
+```bash
+# Features médicas
+feat(auth): add emergency access override
+feat(records): implement medical history encryption
+feat(chat): add urgent message prioritization
+
+# Bug fixes críticos
+fix(security): patch RLS vulnerability in patient data
+fix(emergency): resolve contact notification failure
+fix(compliance): fix audit trail logging
+
+# Compliance y seguridad
+compliance(hipaa): add patient data encryption
+security(rls): strengthen medical record policies
+audit(logging): enhance security event tracking
+
+# Performance médico
+perf(db): optimize medical record queries
+perf(ui): lazy load patient dashboard components
+```
+
+### Branch Protection Rules
+- **main/production**: Requiere review médico + técnico
+- **staging**: Testing completo de compliance
+- **feature branches**: Nombrar con dominio médico (`feature/medical-records-encryption`)
+
+## ✅ Checklist de Compliance Médico
+
+### Antes de cada PR (Pull Request):
+- [ ] **Seguridad**
+  - [ ] No hay datos médicos hardcodeados
+  - [ ] RLS policies verificadas para nuevas tablas
+  - [ ] Permisos validados en nuevas funciones
+  - [ ] Audit trail implementado para cambios críticos
+- [ ] **Código**
+  - [ ] Archivo no supera 300 líneas
+  - [ ] Tipos TypeScript explícitos para datos médicos
+  - [ ] Validaciones Zod para inputs médicos
+  - [ ] Error handling robusto implementado
+- [ ] **Testing**
+  - [ ] Tests unitarios para funciones médicas críticas
+  - [ ] Tests de seguridad para nuevos permisos
+  - [ ] Tests de accessibility para interfaces médicas
+  - [ ] Cobertura mínima 80% (95% para módulos críticos)
+- [ ] **Performance**
+  - [ ] Queries optimizadas sin N+1 problems
+  - [ ] Componentes memoizados apropiadamente
+  - [ ] Bundle size impacto minimizado
+- [ ] **Compliance**
+  - [ ] Documentación médica actualizada
+  - [ ] Variables de entorno configuradas
+  - [ ] Migraciones de BD aplicadas y verificadas
+  - [ ] Logging de seguridad implementado
+
+### Antes de deployment a producción:
+- [ ] **Medical Compliance Verification**
+  - [ ] HIPAA compliance checklist completado
+  - [ ] Audit trail funcionando correctamente
+  - [ ] Backup y recovery procedures verificados
+  - [ ] Security monitoring configurado
+- [ ] **Performance Validation**
+  - [ ] Load testing en endpoints médicos críticos
+  - [ ] Database performance verified
+  - [ ] CDN configurado para assets médicos
+- [ ] **Security Final Check**
+  - [ ] Penetration testing completado
+  - [ ] SSL/TLS certificados válidos
+  - [ ] Environment variables seguras
+  - [ ] Rate limiting configurado
+
+---
+
+## 🚨 RECORDATORIOS CRÍTICOS
+
+> **⚠️ DATOS MÉDICOS SENSIBLES**: Esta aplicación maneja información médica protegida. Cada línea de código debe considerar la privacidad y seguridad del paciente.
+
+> **🔒 COMPLIANCE OBLIGATORIO**: El incumplimiento de estas reglas puede resultar en violaciones de compliance médico y riesgos legales.
+
+> **📊 AUDIT TRAIL**: Todas las operaciones críticas deben ser registradas para auditoría médica.
+
+> **🚀 PERFORMANCE CRÍTICO**: En emergencias médicas, cada segundo cuenta. El código debe ser eficiente y robusto.
+
+---
+
+**Estas reglas son obligatorias para mantener la integridad, seguridad y compliance de la plataforma médica. Cada desarrollador debe familiarizarse y aplicar estas prácticas consistentemente.**
