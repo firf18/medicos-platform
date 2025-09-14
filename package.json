@@ -23,7 +23,9 @@
     "postinstall": "echo '\n📋 Después de la instalación, ejecuta: npm run verify:setup'",
     "deploy:auto": "vercel --prod --token gJC7Ln77wkBoKlUSbo0wFxYA",
     "health:check": "node scripts/health-check.js",
-    "monitor": "node scripts/health-check.js"
+    "monitor": "node scripts/health-check.js",
+    "deploy:vercel": "node scripts/deploy-vercel.js",
+    "vercel:link": "node scripts/setup-vercel-auto.js"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
