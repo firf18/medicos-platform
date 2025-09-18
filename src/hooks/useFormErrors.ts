@@ -9,7 +9,6 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { ZodError } from 'zod';
 import { 
   FormattedError, 
-  ErrorSummary, 
   formatZodError, 
   groupErrorsByField, 
   getFirstErrorForField,
@@ -38,13 +37,13 @@ export interface UseFormErrorsActions {
   clearAllErrors: () => void;
   getFieldError: (field: string) => string | null;
   hasFieldError: (field: string) => boolean;
-  validateField: (field: string, value: any, validator: (value: any) => boolean, message: string) => void;
+  validateField: (field: string, value: unknown, validator: (value: unknown) => boolean, message: string) => void;
+  getFieldClassName: (field: string, baseClassName?: string) => string;
+  getFieldErrorElement: (field: string) => React.ReactElement | null;
 }
 
 export interface UseFormErrorsOptions {
   showWarningsAsErrors?: boolean;
-  autoClearOnChange?: boolean;
-  debounceMs?: number;
 }
 
 // ============================================================================
@@ -53,9 +52,7 @@ export interface UseFormErrorsOptions {
 
 export function useFormErrors(options: UseFormErrorsOptions = {}): UseFormErrorsState & UseFormErrorsActions {
   const {
-    showWarningsAsErrors = false,
-    autoClearOnChange = true,
-    debounceMs = 300
+    showWarningsAsErrors = false
   } = options;
 
   const [errors, setErrors] = useState<FormattedError[]>([]);
@@ -136,8 +133,8 @@ export function useFormErrors(options: UseFormErrorsOptions = {}): UseFormErrors
 
   const validateField = useCallback((
     field: string, 
-    value: any, 
-    validator: (value: any) => boolean, 
+    value: unknown, 
+    validator: (value: unknown) => boolean, 
     message: string
   ) => {
     if (!validator(value)) {
@@ -207,9 +204,7 @@ export function useFormErrors(options: UseFormErrorsOptions = {}): UseFormErrors
 
 export function useDoctorRegistrationErrors() {
   const formErrors = useFormErrors({
-    showWarningsAsErrors: false,
-    autoClearOnChange: true,
-    debounceMs: 500
+    showWarningsAsErrors: false
   });
 
   // Validaciones específicas para registro de médicos
@@ -225,21 +220,32 @@ export function useDoctorRegistrationErrors() {
   }, [formErrors]);
 
   const validatePhone = useCallback((phone: string) => {
-    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
     if (!phone.trim()) {
       formErrors.setFieldError('teléfono', 'El teléfono es requerido');
-    } else if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
-      formErrors.setFieldError('teléfono', 'Formato de teléfono inválido. Use el formato: +1 234 567 8900');
+      return;
+    }
+
+    // Validación específica para números venezolanos
+    const venezuelanPhoneRegex = /^\+58[24]\d{9}$/;
+    
+    if (!venezuelanPhoneRegex.test(phone)) {
+      formErrors.setFieldError('teléfono', 'Debe ser un número venezolano válido. Formato: +58XXXXXXXXX (ej: +584241234567)');
     } else {
       formErrors.clearFieldError('teléfono');
     }
   }, [formErrors]);
 
   const validatePassword = useCallback((password: string) => {
+    if (!password.trim()) {
+      formErrors.setFieldError('contraseña', 'La contraseña es requerida');
+      return;
+    }
+
     const errors: string[] = [];
     
-    if (password.length < 8) {
-      errors.push('Mínimo 8 caracteres');
+    // Validación para médicos
+    if (password.length < 6) {
+      errors.push('Mínimo 6 caracteres');
     }
     if (!/[A-Z]/.test(password)) {
       errors.push('Al menos una mayúscula');
@@ -250,8 +256,11 @@ export function useDoctorRegistrationErrors() {
     if (!/\d/.test(password)) {
       errors.push('Al menos un número');
     }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      errors.push('Al menos un carácter especial');
+
+    // Verificar patrones comunes (más importante que caracteres especiales)
+    const commonPatterns = ['123456', 'password', 'doctor', 'medico', 'admin', 'qwerty'];
+    if (commonPatterns.some(pattern => password.toLowerCase().includes(pattern))) {
+      errors.push('No debe contener patrones comunes');
     }
 
     if (errors.length > 0) {

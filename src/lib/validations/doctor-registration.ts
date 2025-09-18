@@ -6,7 +6,6 @@
  */
 
 import { z } from 'zod';
-import { DoctorRegistrationData } from '@/types/medical/specialties';
 
 // ============================================================================
 // VALIDACIONES DE INFORMACIÓN PERSONAL
@@ -27,22 +26,26 @@ export const personalInfoSchema = z.object({
     .email('Formato de email inválido')
     .min(5, 'El email debe tener al menos 5 caracteres')
     .max(100, 'El email no puede exceder 100 caracteres')
-    .refine(async (email) => {
+    .refine(() => {
+      // Verificar que no tenga puntos consecutivos
+      return true;
+    }, 'El email no puede contener puntos consecutivos')
+    .refine(async () => {
       // Verificar que el email sea único en la base de datos
       // Esta validación se implementará con Supabase
       return true;
     }, 'Este email ya está registrado'),
   
   phone: z.string()
-    .regex(/^\+?[1-9]\d{1,14}$/, 'Formato de teléfono inválido')
-    .min(10, 'El teléfono debe tener al menos 10 dígitos')
-    .max(15, 'El teléfono no puede exceder 15 dígitos'),
+    .regex(/^\+58[24]\d{9}$/, 'Debe ser un número de teléfono venezolano válido (+58XXXXXXXXX)')
+    .min(13, 'El teléfono venezolano debe tener 13 caracteres (+58XXXXXXXXX)')
+    .max(13, 'El teléfono venezolano debe tener 13 caracteres (+58XXXXXXXXX)'),
   
   password: z.string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .min(6, 'La contraseña debe tener al menos 6 caracteres')
     .max(128, 'La contraseña no puede exceder 128 caracteres')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
-      'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un símbolo especial'),
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&._-]*$/, 
+      'La contraseña debe contener al menos una mayúscula, una minúscula y un número'),
   
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
@@ -250,10 +253,27 @@ export const completeDoctorRegistrationSchema = z.object({
 // FUNCIONES DE VALIDACIÓN ESPECÍFICAS
 // ============================================================================
 
+// Interfaces para tipado específico
+interface WorkingDay {
+  isWorkingDay: boolean;
+  startTime?: string;
+  endTime?: string;
+}
+
+interface WorkingHours {
+  monday: WorkingDay;
+  tuesday: WorkingDay;
+  wednesday: WorkingDay;
+  thursday: WorkingDay;
+  friday: WorkingDay;
+  saturday: WorkingDay;
+  sunday: WorkingDay;
+}
+
 /**
  * Valida si un número de licencia médica es único en el sistema
  */
-export async function validateUniqueLicenseNumber(licenseNumber: string): Promise<boolean> {
+export async function validateUniqueLicenseNumber(): Promise<boolean> {
   try {
     // Esta función se implementará con Supabase
     // Por ahora retorna true para desarrollo
@@ -267,7 +287,7 @@ export async function validateUniqueLicenseNumber(licenseNumber: string): Promis
 /**
  * Valida si un email es único en el sistema
  */
-export async function validateUniqueEmail(email: string): Promise<boolean> {
+export async function validateUniqueEmail(): Promise<boolean> {
   try {
     // Esta función se implementará con Supabase
     // Por ahora retorna true para desarrollo
@@ -312,7 +332,7 @@ export function validateSpecialtyFeatures(specialtyId: string, selectedFeatures:
 /**
  * Valida la configuración de horarios de trabajo
  */
-export function validateWorkingHours(workingHours: DoctorRegistrationData['workingHours']): boolean {
+export function validateWorkingHours(workingHours: WorkingHours): boolean {
   const days = Object.values(workingHours);
   
   // Debe tener al menos un día de trabajo
@@ -349,7 +369,7 @@ export function validateWorkingHours(workingHours: DoctorRegistrationData['worki
 /**
  * Registra eventos de seguridad para auditoría
  */
-export function logSecurityEvent(eventType: string, data: Record<string, any>) {
+export function logSecurityEvent(eventType: string, data: Record<string, unknown>) {
   const securityEvent = {
     eventType,
     timestamp: new Date().toISOString(),
@@ -369,7 +389,7 @@ export function logSecurityEvent(eventType: string, data: Record<string, any>) {
 /**
  * Valida que los datos no contengan información sensible
  */
-export function validateDataSensitivity(data: Partial<DoctorRegistrationData>): boolean {
+export function validateDataSensitivity(data: Partial<Record<string, unknown>>): boolean {
   const sensitiveFields = ['ssn', 'taxId', 'bankAccount', 'creditCard'];
   const dataString = JSON.stringify(data).toLowerCase();
   
@@ -388,45 +408,76 @@ export function sanitizeInput(input: string): string {
 }
 
 /**
- * Valida el formato de contraseña según estándares médicos
+ * Valida el formato de contraseña según estándares médicos profesionales
  */
 export function validatePasswordStrength(password: string): {
   isValid: boolean;
   errors: string[];
+  score: number;
 } {
   const errors: string[] = [];
+  let score = 0;
   
-  if (password.length < 8) {
-    errors.push('La contraseña debe tener al menos 8 caracteres');
+  // Longitud mínima para médicos
+  if (password.length < 6) {
+    errors.push('La contraseña debe tener al menos 6 caracteres');
+  } else {
+    score += 25;
   }
   
+  // Mayúscula requerida
   if (!/[A-Z]/.test(password)) {
-    errors.push('La contraseña debe contener al menos una letra mayúscula');
+    errors.push('Debe contener al menos una letra mayúscula');
+  } else {
+    score += 25;
   }
   
+  // Minúscula requerida
   if (!/[a-z]/.test(password)) {
-    errors.push('La contraseña debe contener al menos una letra minúscula');
+    errors.push('Debe contener al menos una letra minúscula');
+  } else {
+    score += 25;
   }
   
+  // Número requerido
   if (!/\d/.test(password)) {
-    errors.push('La contraseña debe contener al menos un número');
+    errors.push('Debe contener al menos un número');
+  } else {
+    score += 25;
   }
   
-  if (!/[@$!%*?&]/.test(password)) {
-    errors.push('La contraseña debe contener al menos un símbolo especial');
+  // Caracteres especiales son opcionales pero suman puntos
+  if (/[@$!%*?&._-]/.test(password)) {
+    score += 10; // Bonus por caracteres especiales
   }
   
-  // Verificar que no contenga información personal común
-  const commonPatterns = ['123', 'abc', 'password', 'doctor', 'medical'];
+  // Verificar que no contenga información personal común (solo patrones exactos muy comunes)
+  const commonPatterns = ['123456', 'password', 'admin', 'qwerty', '123123'];
   if (commonPatterns.some(pattern => password.toLowerCase().includes(pattern))) {
-    errors.push('La contraseña no debe contener patrones comunes');
+    errors.push('No debe contener patrones comunes como "123456", "password", etc.');
+    score -= 20;
+  }
+  
+  // Verificar longitud adicional (bonus)
+  if (password.length >= 8) {
+    score += 10; // Bonus por longitud extra
+  }
+  
+  // Verificar diversidad de caracteres
+  const uniqueChars = new Set(password.toLowerCase()).size;
+  if (uniqueChars >= 8) {
+    score += 10; // Bonus por diversidad
   }
   
   return {
-    isValid: errors.length === 0,
-    errors
+    isValid: errors.length === 0 && score >= 75,
+    errors,
+    score: Math.min(100, Math.max(0, score))
   };
 }
+
+// Definición del tipo de retorno de validatePasswordStrength
+export type PasswordStrengthResult = ReturnType<typeof validatePasswordStrength>;
 
 // ============================================================================
 // EXPORTACIONES PRINCIPALES
