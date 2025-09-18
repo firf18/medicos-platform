@@ -1,4 +1,4 @@
-# Dashboard de Médicos - Red-Salud
+# Dashboard de Médicos - MediConsult
 
 ## 🎉 ¡Dashboard de Pacientes Completado!
 
@@ -179,17 +179,20 @@ Para crear dashboards especializados, puedes:
 ### ✅ **Problemas Solucionados:**
 
 #### **1. Registro de Usuarios Arreglado:**
+
 - ✅ **Triggers automáticos**: Los usuarios se crean automáticamente en `doctors`/`patients`
 - ✅ **Flujo optimizado**: Usa metadata para crear registros relacionados
 - ✅ **Validación de roles**: Previene inconsistencias en la base de datos
 
 #### **2. Seguridad Configurada:**
+
 - ✅ **RLS Policies optimizadas**: Eliminadas políticas duplicadas (de 25+ a 8 políticas eficientes)
 - ✅ **Índices de performance**: Agregados para todas las foreign keys
 - ✅ **Funciones de seguridad**: Validación de contraseñas y logging de eventos
 - ✅ **Protección contra ataques**: Rate limiting y validaciones
 
 #### **3. Performance Mejorada:**
+
 - ✅ **Políticas RLS eficientes**: Uso correcto de `(SELECT auth.uid())` en lugar de `auth.uid()`
 - ✅ **Índices compuestos**: Para queries comunes optimizadas
 - ✅ **Limpieza de políticas**: Eliminadas 50+ políticas redundantes
@@ -197,14 +200,16 @@ Para crear dashboards especializados, puedes:
 ### ⚠️ **Configuración Manual Requerida en Dashboard:**
 
 1. **Authentication > Settings**:
+
    - ☐ Habilitar "Leaked Password Protection"
-   - ☐ Configurar "Password Strength" a "Strong"  
+   - ☐ Configurar "Password Strength" a "Strong"
    - ☐ Habilitar "Multi-Factor Authentication"
 
 2. **Database > Settings**:
    - ☐ Programar actualización de PostgreSQL
 
 ### 🧪 **Verificar Configuración:**
+
 ```bash
 node scripts/verify-setup.js
 ```
@@ -212,10 +217,12 @@ node scripts/verify-setup.js
 ### 🚀 **Flujo de Prueba Actualizado:**
 
 1. **Registrar Usuario**: `/auth/register`
+
    - ✅ Automáticamente crea perfil + doctor/patient
    - ✅ Usa triggers de base de datos para consistencia
 
 2. **Login Separado**: `/auth/login`
+
    - ✅ Médicos: `/auth/login/medicos` (azul)
    - ✅ Pacientes: `/auth/login/pacientes` (verde)
 

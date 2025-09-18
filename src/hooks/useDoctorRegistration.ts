@@ -5,7 +5,7 @@
  * incluyendo validaciones, seguridad y compliance médico.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 import { 
@@ -25,12 +25,9 @@ import {
   sanitizeInput,
   validatePasswordStrength
 } from '@/lib/validations/doctor-registration';
-import { 
-  registerDoctor, 
-  checkEmailAvailability,
-  checkLicenseAvailability 
-} from '@/lib/supabase/doctor-registration';
 import { useDoctorRegistrationErrors } from '@/hooks/useFormErrors';
+import { useRegistrationPersistence } from '@/hooks/useRegistrationPersistence';
+import { logger } from '@/lib/logging/logger';
 import { ZodError } from 'zod';
 
 interface UseDoctorRegistrationProps {
@@ -47,47 +44,104 @@ export function useDoctorRegistration({
   // Hook de manejo de errores mejorado
   const formErrors = useDoctorRegistrationErrors();
   
+  // Hook de persistencia de registro
+  const registrationPersistence = useRegistrationPersistence();
+  
+  // Refs para el autoguardado
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedDataRef = useRef<DoctorRegistrationData | null>(null);
+  const lastSavedProgressRef = useRef<RegistrationProgress | null>(null);
+  
+  // Registrar inicio del proceso de registro
+  useEffect(() => {
+    logger.info('registration', 'Doctor registration process started', {
+      timestamp: new Date().toISOString()
+    });
+  }, []);
+  
   // Estado del formulario de registro
-  const [registrationData, setRegistrationData] = useState<DoctorRegistrationData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    specialtyId: '',
-    subSpecialties: [],
-    licenseNumber: '',
-    licenseState: '',
-    licenseExpiry: '',
-    yearsOfExperience: 0,
-    currentHospital: '',
-    clinicAffiliations: [],
-    bio: '',
-    selectedFeatures: [],
-    workingHours: {
-      monday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
-      tuesday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
-      wednesday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
-      thursday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
-      friday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
-      saturday: { isWorkingDay: false },
-      sunday: { isWorkingDay: false }
-    }
+  const [registrationData, setRegistrationData] = useState<DoctorRegistrationData>(() => {
+    // Intentar cargar datos guardados
+    const { data } = registrationPersistence.loadProgress();
+    return data || {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+      specialtyId: '',
+      subSpecialties: [],
+      licenseNumber: '',
+      licenseState: '',
+      licenseExpiry: '',
+      yearsOfExperience: 0,
+      currentHospital: '',
+      clinicAffiliations: [],
+      bio: '',
+      selectedFeatures: [],
+      workingHours: {
+        monday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        tuesday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        wednesday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        thursday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        friday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        saturday: { isWorkingDay: false },
+        sunday: { isWorkingDay: false }
+      }
+    };
   });
 
   // Estado del progreso de registro
-  const [progress, setProgress] = useState<RegistrationProgress>({
-    currentStep: 'personal_info',
-    completedSteps: [],
-    totalSteps: 6,
-    canProceed: false,
-    errors: {}
+  const [progress, setProgress] = useState<RegistrationProgress>(() => {
+    // Intentar cargar progreso guardado
+    const { progress: savedProgress } = registrationPersistence.loadProgress();
+    return savedProgress || {
+      currentStep: 'personal_info',
+      completedSteps: [],
+      totalSteps: 6,
+      canProceed: false,
+      errors: {}
+    };
   });
 
   // Estado de carga
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Función para guardar automáticamente el progreso
+  const autoSaveProgress = useCallback((data: DoctorRegistrationData, progress: RegistrationProgress) => {
+    // Cancelar el guardado anterior si existe
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Guardar después de 1 segundo de inactividad
+    saveTimeoutRef.current = setTimeout(() => {
+      // Solo guardar si los datos han cambiado
+      const dataChanged = JSON.stringify(data) !== JSON.stringify(lastSavedDataRef.current);
+      const progressChanged = JSON.stringify(progress) !== JSON.stringify(lastSavedProgressRef.current);
+      
+      if (dataChanged || progressChanged) {
+        registrationPersistence.saveProgress(data, progress);
+        lastSavedDataRef.current = { ...data };
+        lastSavedProgressRef.current = { ...progress };
+        
+        logger.info('registration', 'Progress auto-saved', {
+          timestamp: new Date().toISOString()
+        });
+      }
+    }, 1000);
+  }, [registrationPersistence]);
+
+  // Limpiar el timeout al desmontar
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // ============================================================================
   // FUNCIONES DE VALIDACIÓN POR PASO
@@ -95,6 +149,10 @@ export function useDoctorRegistration({
 
   const validatePersonalInfo = useCallback(async (data: Partial<DoctorRegistrationData>) => {
     try {
+      logger.debug('registration', 'Validating personal info', {
+        fields: Object.keys(data).filter(key => data[key as keyof typeof data])
+      });
+      
       const personalData = {
         firstName: data.firstName || '',
         lastName: data.lastName || '',
@@ -138,11 +196,20 @@ export function useDoctorRegistration({
         timestamp: new Date().toISOString()
       });
 
+      logger.info('registration', 'Personal info validation successful', {
+        email: personalData.email
+      });
+
       return { isValid: true, errors: [] };
     } catch (error: any) {
       logSecurityEvent('personal_info_validation_failed', {
         error: error.message,
         timestamp: new Date().toISOString()
+      });
+      
+      logger.warn('registration', 'Personal info validation failed', {
+        error: error.message,
+        fields: Object.keys(data)
       });
       
       // Manejar errores de Zod de forma user-friendly
@@ -165,6 +232,10 @@ export function useDoctorRegistration({
 
   const validateProfessionalInfo = useCallback(async (data: Partial<DoctorRegistrationData>) => {
     try {
+      logger.debug('registration', 'Validating professional info', {
+        fields: Object.keys(data).filter(key => data[key as keyof typeof data])
+      });
+      
       const professionalData = {
         licenseNumber: data.licenseNumber || '',
         licenseState: data.licenseState || '',
@@ -176,13 +247,17 @@ export function useDoctorRegistration({
       };
 
       // Sanitizar inputs
+      const sanitizedData: any = {};
       Object.keys(professionalData).forEach(key => {
-        if (typeof professionalData[key as keyof typeof professionalData] === 'string') {
-          professionalData[key as keyof typeof professionalData] = sanitizeInput(
-            professionalData[key as keyof typeof professionalData] as string
-          );
+        const value = professionalData[key as keyof typeof professionalData];
+        if (typeof value === 'string') {
+          sanitizedData[key] = sanitizeInput(value);
+        } else {
+          sanitizedData[key] = value;
         }
       });
+      // Aplicar datos sanitizados
+      Object.assign(professionalData, sanitizedData);
 
       // Validar con Zod
       await professionalInfoSchema.parseAsync(professionalData);
@@ -197,11 +272,20 @@ export function useDoctorRegistration({
         timestamp: new Date().toISOString()
       });
 
+      logger.info('registration', 'Professional info validation successful', {
+        licenseNumber: professionalData.licenseNumber
+      });
+
       return { isValid: true, errors: [] };
     } catch (error: any) {
       logSecurityEvent('professional_info_validation_failed', {
         error: error.message,
         timestamp: new Date().toISOString()
+      });
+      
+      logger.warn('registration', 'Professional info validation failed', {
+        error: error.message,
+        fields: Object.keys(data)
       });
       
       // Manejar errores de Zod de forma user-friendly
@@ -224,6 +308,10 @@ export function useDoctorRegistration({
 
   const validateSpecialtySelection = useCallback(async (data: Partial<DoctorRegistrationData>) => {
     try {
+      logger.debug('registration', 'Validating specialty selection', {
+        fields: Object.keys(data).filter(key => data[key as keyof typeof data])
+      });
+      
       const specialtyData = {
         specialtyId: data.specialtyId || '',
         subSpecialties: data.subSpecialties || [],
@@ -240,11 +328,20 @@ export function useDoctorRegistration({
         timestamp: new Date().toISOString()
       });
 
+      logger.info('registration', 'Specialty selection validation successful', {
+        specialtyId: specialtyData.specialtyId
+      });
+
       return { isValid: true, errors: [] };
     } catch (error: any) {
       logSecurityEvent('specialty_selection_validation_failed', {
         error: error.message,
         timestamp: new Date().toISOString()
+      });
+      
+      logger.warn('registration', 'Specialty selection validation failed', {
+        error: error.message,
+        fields: Object.keys(data)
       });
       
       return { 
@@ -256,8 +353,50 @@ export function useDoctorRegistration({
 
   const validateIdentityVerification = useCallback(async (data: Partial<DoctorRegistrationData>) => {
     try {
+      logger.debug('registration', 'Validating identity verification', {
+        hasIdentityVerification: !!data.identityVerification
+      });
+      
       if (!data.identityVerification) {
         throw new Error('La verificación de identidad es requerida');
+      }
+
+      // Validar que la verificación esté completada
+      if (data.identityVerification.status !== 'verified') {
+        throw new Error('La verificación de identidad debe estar completada');
+      }
+
+      // Validar que tenga un ID de verificación válido
+      if (!data.identityVerification.verificationId) {
+        throw new Error('ID de verificación de identidad es requerido');
+      }
+
+      // Validar formato UUID del ID de verificación
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(data.identityVerification.verificationId)) {
+        throw new Error('ID de verificación de identidad inválido');
+      }
+
+      // Validar que tenga resultados de verificación
+      if (!data.identityVerification.verificationResults) {
+        throw new Error('Resultados de verificación son requeridos');
+      }
+
+      // Validar resultados de verificación
+      if (!data.identityVerification.verificationResults.documentValid) {
+        throw new Error('El documento debe ser válido');
+      }
+
+      if (!data.identityVerification.verificationResults.faceMatch) {
+        throw new Error('La verificación facial debe ser exitosa');
+      }
+
+      if (!data.identityVerification.verificationResults.livenessCheck) {
+        throw new Error('La verificación de vida debe ser exitosa');
+      }
+
+      if (!data.identityVerification.verificationResults.amlScreening) {
+        throw new Error('El screening AML debe ser exitoso');
       }
 
       // Validar con Zod
@@ -270,11 +409,21 @@ export function useDoctorRegistration({
         timestamp: new Date().toISOString()
       });
 
+      logger.info('registration', 'Identity verification validation successful', {
+        verificationId: data.identityVerification.verificationId
+      });
+
       return { isValid: true, errors: [] };
     } catch (error: any) {
       logSecurityEvent('identity_verification_validation_failed', {
         error: error.message,
+        verificationId: data.identityVerification?.verificationId,
         timestamp: new Date().toISOString()
+      });
+      
+      logger.warn('registration', 'Identity verification validation failed', {
+        error: error.message,
+        verificationId: data.identityVerification?.verificationId
       });
       
       return { 
@@ -286,6 +435,11 @@ export function useDoctorRegistration({
 
   const validateDashboardConfiguration = useCallback(async (data: Partial<DoctorRegistrationData>) => {
     try {
+      logger.debug('registration', 'Validating dashboard configuration', {
+        hasSelectedFeatures: !!data.selectedFeatures,
+        hasWorkingHours: !!data.workingHours
+      });
+      
       const dashboardData = {
         selectedFeatures: data.selectedFeatures || [],
         workingHours: data.workingHours || registrationData.workingHours
@@ -300,11 +454,19 @@ export function useDoctorRegistration({
         timestamp: new Date().toISOString()
       });
 
+      logger.info('registration', 'Dashboard configuration validation successful', {
+        selectedFeaturesCount: dashboardData.selectedFeatures.length
+      });
+
       return { isValid: true, errors: [] };
     } catch (error: any) {
       logSecurityEvent('dashboard_configuration_validation_failed', {
         error: error.message,
         timestamp: new Date().toISOString()
+      });
+      
+      logger.warn('registration', 'Dashboard configuration validation failed', {
+        error: error.message
       });
       
       return { 
@@ -319,28 +481,60 @@ export function useDoctorRegistration({
   // ============================================================================
 
   const updateRegistrationData = useCallback((newData: Partial<DoctorRegistrationData>) => {
-    setRegistrationData(prev => ({ ...prev, ...newData }));
-  }, []);
+    setRegistrationData(prev => {
+      const updatedData = { ...prev, ...newData };
+      
+      // Guardar progreso automáticamente
+      autoSaveProgress(updatedData, progress);
+      
+      // Loggear cambios en el registro
+      logger.debug('registration', 'Registration data updated', {
+        fields: Object.keys(newData),
+        timestamp: new Date().toISOString()
+      });
+      
+      return updatedData;
+    });
+  }, [progress, autoSaveProgress]);
 
   const markStepAsCompleted = useCallback((step: RegistrationStep) => {
-    setProgress(prev => ({
-      ...prev,
-      canProceed: true,
-      errors: { ...prev.errors, [step]: '' }
-    }));
-  }, []);
+    setProgress(prev => {
+      const updatedProgress = {
+        ...prev,
+        canProceed: true,
+        errors: { ...prev.errors, [step]: '' }
+      };
+      
+      // Guardar progreso automáticamente
+      autoSaveProgress(registrationData, updatedProgress);
+      
+      return updatedProgress;
+    });
+  }, [registrationData, autoSaveProgress]);
 
   const setStepError = useCallback((step: RegistrationStep, error: string) => {
-    setProgress(prev => ({
-      ...prev,
-      canProceed: false,
-      errors: { ...prev.errors, [step]: error }
-    }));
-  }, []);
+    setProgress(prev => {
+      const updatedProgress = {
+        ...prev,
+        canProceed: false,
+        errors: { ...prev.errors, [step]: error }
+      };
+      
+      // Guardar progreso automáticamente
+      autoSaveProgress(registrationData, updatedProgress);
+      
+      return updatedProgress;
+    });
+  }, [registrationData, autoSaveProgress]);
 
   const nextStep = useCallback(async () => {
     const currentStep = progress.currentStep;
     let validationResult = { isValid: true, errors: [] };
+
+    logger.info('registration', 'Attempting to move to next step', {
+      currentStep,
+      timestamp: new Date().toISOString()
+    });
 
     // Validar el paso actual antes de avanzar
     switch (currentStep) {
@@ -362,6 +556,11 @@ export function useDoctorRegistration({
     }
 
     if (!validationResult.isValid) {
+      logger.warn('registration', 'Step validation failed', {
+        step: currentStep,
+        errors: validationResult.errors
+      });
+      
       setStepError(currentStep, validationResult.errors.join(', '));
       return;
     }
@@ -381,13 +580,27 @@ export function useDoctorRegistration({
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
       const nextStepValue = steps[currentIndex + 1];
-      setProgress(prev => ({
-        ...prev,
-        currentStep: nextStepValue,
-        completedSteps: [...prev.completedSteps, currentStep]
-      }));
+      
+      logger.info('registration', 'Moving to next step', {
+        from: currentStep,
+        to: nextStepValue,
+        timestamp: new Date().toISOString()
+      });
+      
+      setProgress(prev => {
+        const updatedProgress = {
+          ...prev,
+          currentStep: nextStepValue,
+          completedSteps: [...prev.completedSteps, currentStep]
+        };
+        
+        // Guardar progreso automáticamente
+        autoSaveProgress(registrationData, updatedProgress);
+        
+        return updatedProgress;
+      });
     }
-  }, [progress.currentStep, registrationData, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted, setStepError]);
+  }, [progress.currentStep, registrationData, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted, setStepError, autoSaveProgress]);
 
   const prevStep = useCallback(() => {
     const steps: RegistrationStep[] = [
@@ -402,13 +615,27 @@ export function useDoctorRegistration({
     const currentIndex = steps.indexOf(progress.currentStep);
     if (currentIndex > 0) {
       const prevStepValue = steps[currentIndex - 1];
-      setProgress(prev => ({
-        ...prev,
-        currentStep: prevStepValue,
-        completedSteps: prev.completedSteps.filter(step => step !== prevStepValue)
-      }));
+      
+      logger.info('registration', 'Moving to previous step', {
+        from: progress.currentStep,
+        to: prevStepValue,
+        timestamp: new Date().toISOString()
+      });
+      
+      setProgress(prev => {
+        const updatedProgress = {
+          ...prev,
+          currentStep: prevStepValue,
+          completedSteps: prev.completedSteps.filter(step => step !== prevStepValue)
+        };
+        
+        // Guardar progreso automáticamente
+        autoSaveProgress(registrationData, updatedProgress);
+        
+        return updatedProgress;
+      });
     }
-  }, [progress.currentStep]);
+  }, [progress.currentStep, registrationData, autoSaveProgress]);
 
   // ============================================================================
   // FUNCIÓN DE ENVÍO FINAL
@@ -416,99 +643,84 @@ export function useDoctorRegistration({
 
   const handleFinalSubmission = useCallback(async () => {
     setIsSubmitting(true);
-    
     try {
       // Validación completa final
       await completeDoctorRegistrationSchema.parseAsync(registrationData);
-      
+
+      // Requiere verificación aprobada antes de finalizar
+      if (registrationData.identityVerification?.status !== 'verified') {
+        throw new Error('La verificación de identidad debe estar aprobada antes de finalizar.');
+      }
+
       // Log de seguridad para envío
-      logSecurityEvent('doctor_registration_submission_started', {
+      logSecurityEvent('doctor_registration_finalize_started', {
         email: registrationData.email,
         specialtyId: registrationData.specialtyId,
         timestamp: new Date().toISOString()
       });
 
-      // Registrar médico en Supabase
-      const registrationResult = await registerDoctor(registrationData);
-
-      if (!registrationResult.success) {
-        throw new Error(registrationResult.error || 'Error durante el registro');
+      // Llamar al endpoint de finalización (server-side, service-role)
+      const res = await fetch('/api/auth/register/doctor/finalize', { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          throw new Error('Debes iniciar sesión para finalizar el registro.');
+        }
+        if (res.status === 409) {
+          throw new Error('La verificación de identidad no está aprobada aún.');
+        }
+        throw new Error(err.error || 'No se pudo finalizar el registro');
       }
+
+      // Limpiar progreso guardado
+      registrationPersistence.clearProgress();
 
       // Marcar como completado
-      setProgress(prev => ({
-        ...prev,
-        currentStep: 'completed',
-        completedSteps: [...prev.completedSteps, 'final_review']
-      }));
+      setProgress(prev => {
+        const updatedProgress = {
+          ...prev,
+          currentStep: 'completed',
+          completedSteps: [...prev.completedSteps, 'final_review']
+        };
+        autoSaveProgress(registrationData, updatedProgress);
+        return updatedProgress;
+      });
 
-      // Notificar éxito
-      if (registrationResult.needsEmailVerification) {
-        toast({
-          title: '¡Registro exitoso!',
-          description: 'Tu cuenta de médico ha sido creada exitosamente. Verifica tu email para activar tu cuenta.',
-        });
-        
-        // Redirigir a verificación de email
-        router.push('/auth/verify-email');
-      } else {
-        toast({
-          title: '¡Registro exitoso!',
-          description: 'Tu cuenta de médico ha sido creada y activada exitosamente.',
-        });
-        
-        // Redirigir al dashboard del médico
-        router.push('/doctor/dashboard');
-      }
+      toast({
+        title: '¡Registro completado!',
+        description: 'Tu perfil de médico ha sido activado correctamente.'
+      });
+
+      // Redirigir a página de éxito o dashboard
+      router.push('/auth/register/doctor/success');
 
       // Callback de éxito
       onRegistrationComplete?.(registrationData);
-      
     } catch (error: any) {
-      console.error('Error en el registro:', error);
-      
-      // Log de error
-      logSecurityEvent('doctor_registration_failed', {
-        error: error.message,
+      console.error('Error al finalizar registro:', error);
+      logSecurityEvent('doctor_registration_finalize_failed', {
+        error: error.message || 'Error desconocido',
         email: registrationData.email,
         timestamp: new Date().toISOString()
       });
 
-      // Mapear errores comunes
-      let errorMessage = error.message;
-      
-      if (error.message?.includes('User already registered')) {
-        errorMessage = 'Ya existe una cuenta con este correo electrónico. Intenta iniciar sesión.';
-      } else if (error.message?.includes('license_number')) {
-        errorMessage = 'Este número de cédula profesional ya está registrado.';
-      } else if (error.message?.includes('email')) {
-        errorMessage = 'Error con el correo electrónico. Verifica que sea válido.';
-      } else if (error.message?.includes('password')) {
-        errorMessage = 'Error con la contraseña. Verifica que cumpla con los requisitos.';
-      } else if (!errorMessage) {
-        errorMessage = 'Ocurrió un error al procesar tu registro. Inténtalo de nuevo.';
-      }
-
-      // Notificar error
       toast({
-        title: 'Error en el registro',
-        description: errorMessage,
-        variant: 'destructive',
+        title: 'Error en la finalización',
+        description: error.message || 'Ocurrió un error al finalizar tu registro.',
+        variant: 'destructive'
       });
 
-      // Callback de error
-      onRegistrationError?.(errorMessage);
-      
+      onRegistrationError?.(error.message || 'Error al finalizar');
     } finally {
       setIsSubmitting(false);
     }
-  }, [registrationData, onRegistrationComplete, onRegistrationError, router, toast]);
+  }, [registrationData, onRegistrationComplete, onRegistrationError, router, registrationPersistence, autoSaveProgress, toast]);
 
   // ============================================================================
   // EFECTOS
   // ============================================================================
 
-  // Auto-validación en tiempo real (solo después de interacción del usuario)
+  // Auto-validación en tiempo real (solo para limpiar errores, no para marcarlos)
   useEffect(() => {
     const validateCurrentStep = async () => {
       if (isLoading) return;
@@ -544,17 +756,18 @@ export function useDoctorRegistration({
           break;
       }
       
+      // Solo marcar como completado si es válido, pero NO marcar como error automáticamente
+      // Los errores solo se marcan cuando el usuario intenta avanzar al siguiente paso
       if (validationResult.isValid) {
         markStepAsCompleted(progress.currentStep);
-      } else {
-        setStepError(progress.currentStep, validationResult.errors.join(', '));
       }
+      // Removido: setStepError automático para evitar mostrar rojo prematuramente
     };
 
     // Debounce para evitar validaciones excesivas
     const timeoutId = setTimeout(validateCurrentStep, 500);
     return () => clearTimeout(timeoutId);
-  }, [registrationData, progress.currentStep, isLoading, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted, setStepError]);
+  }, [registrationData, progress.currentStep, isLoading, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted]);
 
   // ============================================================================
   // RETORNO DEL HOOK

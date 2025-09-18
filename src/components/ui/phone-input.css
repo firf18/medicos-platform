@@ -1,0 +1,72 @@
+/* Estilos personalizados para react-phone-number-input */
+
+.phone-input {
+  @apply w-full;
+}
+
+.phone-input .PhoneInput {
+  @apply flex;
+}
+
+.phone-input .PhoneInputCountrySelect {
+  @apply border border-gray-300 rounded-l-md px-2 py-2 bg-gray-50;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply min-w-[80px];
+}
+
+.phone-input .PhoneInputCountrySelect:focus {
+  @apply ring-2 ring-blue-500 border-blue-500;
+}
+
+.phone-input .PhoneInputCountrySelectArrow {
+  @apply text-gray-500 ml-1;
+}
+
+.phone-input .PhoneInputCountryIcon {
+  @apply w-5 h-4;
+}
+
+.phone-input .PhoneInputInput {
+  @apply flex-1 border border-gray-300 rounded-r-md px-3 py-2 text-sm;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  @apply disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
+  @apply border-l-0;
+}
+
+/* Estados de error */
+.phone-input.error .PhoneInputCountrySelect {
+  @apply border-red-500 focus:border-red-500 focus:ring-red-500;
+}
+
+.phone-input.error .PhoneInputInput {
+  @apply border-red-500 focus:border-red-500 focus:ring-red-500;
+}
+
+/* Estados de éxito */
+.phone-input.success .PhoneInputCountrySelect {
+  @apply border-green-500 focus:border-green-500 focus:ring-green-500;
+}
+
+.phone-input.success .PhoneInputInput {
+  @apply border-green-500 focus:border-green-500 focus:ring-green-500;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .phone-input .PhoneInputCountrySelect {
+    @apply px-1 py-2 min-w-[70px];
+  }
+  
+  .phone-input .PhoneInputCountryIcon {
+    @apply w-4 h-3;
+  }
+  
+  .phone-input .PhoneInputInput {
+    @apply px-2 py-2 text-sm;
+  }
+}
+
+/* Mejorar la apariencia del dropdown de países */
+.phone-input .PhoneInputCountrySelect option {
+  @apply py-1;
+}

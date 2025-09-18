@@ -3,6 +3,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Importar estilos del componente de teléfono */
+@import '../components/ui/phone-input.css';
+
 /* Establecer estilos base para el documento HTML */
 @layer base {
   :root {

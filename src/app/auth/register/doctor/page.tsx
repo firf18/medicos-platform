@@ -18,6 +18,7 @@ import FinalReviewStep from '@/components/auth/doctor-registration/FinalReviewSt
 import { RegistrationStep } from '@/types/medical/specialties';
 import { getSpecialtyById } from '@/lib/medical-specialties';
 import { useDoctorRegistration } from '@/hooks/useDoctorRegistration';
+import { useAutoCleanup } from '@/hooks/useAutoCleanup';
 
 const REGISTRATION_STEPS: { step: RegistrationStep; title: string; description: string }[] = [
   {
@@ -74,6 +75,18 @@ export default function DoctorRegistrationPage() {
     }
   });
 
+  // Limpieza automática de datos
+  useAutoCleanup({
+    onCleanup: () => {
+      // Limpiar datos de registro cuando el usuario sale del proceso
+      localStorage.removeItem('doctor_registration_progress');
+      localStorage.removeItem('doctor_registration_step_progress');
+      localStorage.removeItem('doctor_registration_session_timestamp');
+      console.log('[CLEANUP] Datos de registro limpiados automáticamente');
+    },
+    enabled: true
+  });
+
   // Calcular progreso actual
   const currentStepIndex = REGISTRATION_STEPS.findIndex(s => s.step === progress.currentStep);
   const progressPercentage = ((currentStepIndex + 1) / REGISTRATION_STEPS.length) * 100;
@@ -121,7 +134,7 @@ export default function DoctorRegistrationPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Registro de Médico - Red-Salud
+                Registro Médico 
               </h1>
               <p className="text-gray-600 mt-1">
                 Completa tu registro profesional paso a paso
@@ -175,17 +188,13 @@ export default function DoctorRegistrationPage() {
                         ${isCompleted 
                           ? 'bg-green-500 text-white' 
                           : isCurrent 
-                            ? hasError 
-                              ? 'bg-red-500 text-white'
-                              : 'bg-blue-500 text-white'
+                            ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 text-gray-600'
                         }
                       `}
                     >
                       {isCompleted ? (
                         <CheckCircle className="h-5 w-5" />
-                      ) : hasError && isCurrent ? (
-                        <AlertCircle className="h-5 w-5" />
                       ) : (
                         index + 1
                       )}
@@ -222,36 +231,29 @@ export default function DoctorRegistrationPage() {
 
         {/* Navegación */}
         <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStepIndex === 0 || isSubmitting}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Anterior
-          </Button>
+          {/* Solo mostrar botón Anterior si no estamos en el primer paso */}
+          {currentStepIndex > 0 ? (
+            <Button
+              variant="outline"
+              onClick={prevStep}
+              disabled={isSubmitting}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Anterior
+            </Button>
+          ) : (
+            <div></div>
+          )}
 
           <Button
             onClick={nextStep}
             disabled={!progress.canProceed || currentStepIndex === REGISTRATION_STEPS.length - 1 || isSubmitting}
-            className="ml-auto"
           >
             Siguiente
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
 
-        {/* Mostrar errores del paso actual */}
-        {progress.errors[progress.currentStep] && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-            <div className="flex">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <p className="text-sm text-red-700">
-                {progress.errors[progress.currentStep]}
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

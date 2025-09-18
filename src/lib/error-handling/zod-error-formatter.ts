@@ -38,6 +38,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'invalid_url': 'Formato de URL inválido',
   'invalid_date': 'Formato de fecha inválido',
   'invalid_type': 'Tipo de dato inválido',
+  'invalid_format': 'El formato no es válido',
   
   // Errores específicos de campos médicos
   'invalid_phone': 'Formato de teléfono inválido. Use el formato: +1 234 567 8900',
@@ -115,8 +116,11 @@ export function formatZodIssue(issue: ZodIssue): FormattedError {
 /**
  * Obtiene el nombre del campo desde el path del error
  */
-function getFieldName(path: (string | number)[]): string {
+function getFieldName(path: PropertyKey[]): string {
   if (path.length === 0) return 'general';
+  
+  // Convertir PropertyKey a string para el mapeo
+  const fieldKey = path[0]?.toString() || 'unknown';
   
   const fieldMap: Record<string, string> = {
     'firstName': 'nombre',
@@ -138,7 +142,7 @@ function getFieldName(path: (string | number)[]): string {
     'identityVerification': 'verificación de identidad'
   };
   
-  const fieldKey = path[0]?.toString() || 'unknown';
+  // fieldKey ya está definido arriba, se reutiliza aquí
   return fieldMap[fieldKey] || fieldKey;
 }
 
@@ -177,27 +181,27 @@ function getFieldSpecificMessages(field: string, issue: ZodIssue): string | null
     'nombre': {
       'too_small': 'El nombre debe tener al menos 2 caracteres',
       'too_big': 'El nombre no puede exceder 50 caracteres',
-      'invalid_regex': 'El nombre solo puede contener letras y espacios'
+      'invalid_format': 'El nombre solo puede contener letras y espacios'
     },
     'apellido': {
       'too_small': 'El apellido debe tener al menos 2 caracteres',
       'too_big': 'El apellido no puede exceder 50 caracteres',
-      'invalid_regex': 'El apellido solo puede contener letras y espacios'
+      'invalid_format': 'El apellido solo puede contener letras y espacios'
     },
     'correo electrónico': {
-      'invalid_email': 'Ingresa un correo electrónico válido',
+      'invalid_format': 'Ingresa un correo electrónico válido',
       'too_small': 'El correo electrónico debe tener al menos 5 caracteres',
       'too_big': 'El correo electrónico no puede exceder 100 caracteres'
     },
     'teléfono': {
-      'invalid_regex': 'Formato de teléfono inválido. Use el formato: +1 234 567 8900',
+      'invalid_format': 'Formato de teléfono inválido. Use el formato: +1 234 567 8900',
       'too_small': 'El teléfono debe tener al menos 10 dígitos',
       'too_big': 'El teléfono no puede exceder 15 dígitos'
     },
     'contraseña': {
-      'too_small': 'La contraseña debe tener al menos 8 caracteres',
+      'too_small': 'La contraseña debe tener al menos 6 caracteres',
       'too_big': 'La contraseña no puede exceder 128 caracteres',
-      'invalid_regex': 'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un símbolo especial'
+      'invalid_format': 'La contraseña debe contener al menos una mayúscula, una minúscula, un número y un símbolo especial'
     },
     'confirmación de contraseña': {
       'custom': 'Las contraseñas no coinciden'
@@ -205,7 +209,7 @@ function getFieldSpecificMessages(field: string, issue: ZodIssue): string | null
     'cédula profesional': {
       'too_small': 'La cédula profesional debe tener al menos 6 caracteres',
       'too_big': 'La cédula profesional no puede exceder 20 caracteres',
-      'invalid_regex': 'La cédula solo puede contener letras mayúsculas, números y guiones'
+      'invalid_format': 'La cédula solo puede contener letras mayúsculas, números y guiones'
     },
     'biografía profesional': {
       'too_small': 'La biografía debe tener al menos 100 caracteres',
@@ -230,7 +234,7 @@ function getErrorSeverity(issue: ZodIssue): 'error' | 'warning' | 'info' {
   }
   
   // Errores de formato son warnings
-  if (issue.code === 'invalid_regex' || issue.code === 'invalid_string') {
+  if (issue.code === 'invalid_format') {
     return 'warning';
   }
   

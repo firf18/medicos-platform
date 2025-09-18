@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   User, 
   FileText, 
@@ -16,14 +18,16 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  ExternalLink,
-  Lock
+  Lock,
+  Edit3,
+  Save
 } from 'lucide-react';
 
 import { DoctorRegistrationData } from '@/types/medical/specialties';
 import { getSpecialtyById, getDashboardFeatures } from '@/lib/medical-specialties';
 import { useAuth } from '@/providers/auth';
 import { useRouter } from 'next/navigation';
+import TermsModal from '@/components/auth/doctor-registration/TermsModal';
 
 interface FinalReviewStepProps {
   data: DoctorRegistrationData;
@@ -39,13 +43,22 @@ export default function FinalReviewStep({
   updateData,
   onStepComplete,
   onStepError,
-  isLoading,
+  isLoading: _, // Ignoramos esta prop ya que no la usamos directamente
   onFinalSubmit
 }: FinalReviewStepProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [agreedToCompliance, setAgreedToCompliance] = useState(false);
+  
+  // Estados para edición en línea
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [fieldValue, setFieldValue] = useState<string>('');
+  
+  // Estados para modales de términos
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showComplianceModal, setShowComplianceModal] = useState(false);
   
   const { signUp } = useAuth();
   const router = useRouter();
@@ -56,9 +69,30 @@ export default function FinalReviewStep({
   );
 
   // Contar días laborales
-  const workingDays = Object.entries(data.workingHours).filter(([_, schedule]) => 
+  const workingDays = Object.entries(data.workingHours).filter(([, schedule]) => 
     schedule.isWorkingDay
   ).length;
+
+  // Función para iniciar la edición de un campo
+  const startEditing = (field: string, value: string) => {
+    setEditingField(field);
+    setFieldValue(value);
+  };
+
+  // Función para guardar la edición de un campo
+  const saveEditing = () => {
+    if (editingField) {
+      updateData({ [editingField]: fieldValue });
+      setEditingField(null);
+      setFieldValue('');
+    }
+  };
+
+  // Función para cancelar la edición
+  const cancelEditing = () => {
+    setEditingField(null);
+    setFieldValue('');
+  };
 
   // Función para enviar el registro
   const handleSubmitRegistration = async () => {
@@ -135,6 +169,58 @@ export default function FinalReviewStep({
     }
   };
 
+  // Contenido de ejemplo para los términos y condiciones
+  const termsContent = `Términos y Condiciones de Uso de Red-Salud
+
+1. Aceptación de Términos
+Al acceder y utilizar los servicios de Red-Salud, aceptas estos términos y condiciones de uso.
+
+2. Descripción del Servicio
+Red-Salud es una plataforma digital que conecta médicos con pacientes para facilitar la atención médica.
+
+3. Registro de Médicos
+Los médicos deben proporcionar información veraz y actualizada durante el proceso de registro.
+
+4. Responsabilidades del Médico
+Los médicos son responsables de mantener la confidencialidad de la información de los pacientes.
+
+5. Cumplimiento Legal
+Los usuarios deben cumplir con todas las leyes y regulaciones aplicables en su jurisdicción.`;
+
+  const privacyContent = `Política de Privacidad de Red-Salud
+
+1. Información que Recopilamos
+Recopilamos información personal y médica necesaria para proporcionar nuestros servicios.
+
+2. Uso de la Información
+La información se utiliza para facilitar la conexión entre médicos y pacientes.
+
+3. Protección de Datos
+Implementamos medidas de seguridad técnicas y organizativas para proteger tus datos.
+
+4. Compartir Información
+No compartimos información personal sin tu consentimiento, excepto cuando sea requerido por ley.
+
+5. Derechos del Usuario
+Tienes derecho a acceder, rectificar y eliminar tus datos personales.`;
+
+  const complianceContent = `Normas de Compliance Médico de Red-Salud
+
+1. Ética Profesional
+Los médicos deben mantener los más altos estándares de ética profesional.
+
+2. Confidencialidad
+La información del paciente debe mantenerse estrictamente confidencial.
+
+3. Calidad de la Atención
+Los médicos deben proporcionar atención médica de la más alta calidad.
+
+4. Actualización Profesional
+Los médicos deben mantenerse actualizados en sus conocimientos y habilidades.
+
+5. Cumplimiento Normativo
+Los médicos deben cumplir con todas las normativas médicas aplicables.`;
+
   return (
     <div className="space-y-6">
       <div>
@@ -150,24 +236,83 @@ export default function FinalReviewStep({
       {/* Información Personal */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <User className="h-5 w-5 mr-2" />
-            Información Personal
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <User className="h-5 w-5 mr-2" />
+              Información Personal
+            </div>
+            {editingField !== 'firstName' && editingField !== 'lastName' && editingField !== 'email' && editingField !== 'phone' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => startEditing('firstName', `${data.firstName} ${data.lastName}`)}
+              >
+                <Edit3 className="h-4 w-4" />
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Nombre Completo</p>
-              <p className="font-medium">{data.firstName} {data.lastName}</p>
+              {editingField === 'firstName' || editingField === 'lastName' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    placeholder="Nombre y apellido"
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{data.firstName} {data.lastName}</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Email</p>
-              <p className="font-medium">{data.email}</p>
+              {editingField === 'email' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    placeholder="email@ejemplo.com"
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{data.email}</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Teléfono</p>
-              <p className="font-medium">{data.phone}</p>
+              {editingField === 'phone' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    placeholder="+58XXXXXXXXX"
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{data.phone}</p>
+              )}
             </div>
           </div>
         </CardContent>
@@ -176,33 +321,125 @@ export default function FinalReviewStep({
       {/* Información Profesional */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2" />
-            Información Profesional
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FileText className="h-5 w-5 mr-2" />
+              Información Profesional
+            </div>
+            {editingField !== 'licenseNumber' && editingField !== 'licenseState' && editingField !== 'licenseExpiry' && editingField !== 'yearsOfExperience' && editingField !== 'currentHospital' && editingField !== 'bio' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => startEditing('licenseNumber', data.licenseNumber)}
+              >
+                <Edit3 className="h-4 w-4" />
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Cédula Profesional</p>
-              <p className="font-medium">{data.licenseNumber}</p>
+              {editingField === 'licenseNumber' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    placeholder="Número de cédula profesional"
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{data.licenseNumber}</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Estado de Expedición</p>
-              <p className="font-medium">{data.licenseState}</p>
+              {editingField === 'licenseState' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    placeholder="Estado de expedición"
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{data.licenseState}</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Años de Experiencia</p>
-              <p className="font-medium">{data.yearsOfExperience} años</p>
+              {editingField === 'yearsOfExperience' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    type="number"
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                    placeholder="Años de experiencia"
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{data.yearsOfExperience} años</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Vigencia</p>
-              <p className="font-medium">{new Date(data.licenseExpiry).toLocaleDateString('es-MX')}</p>
+              {editingField === 'licenseExpiry' ? (
+                <div className="flex space-x-2">
+                  <Input
+                    type="date"
+                    value={fieldValue}
+                    onChange={(e) => setFieldValue(e.target.value)}
+                  />
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{new Date(data.licenseExpiry).toLocaleDateString('es-MX')}</p>
+              )}
             </div>
             {data.currentHospital && (
               <div className="md:col-span-2">
                 <p className="text-sm text-gray-600">Hospital/Institución Principal</p>
-                <p className="font-medium">{data.currentHospital}</p>
+                {editingField === 'currentHospital' ? (
+                  <div className="flex space-x-2">
+                    <Input
+                      value={fieldValue}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      placeholder="Hospital o institución principal"
+                    />
+                    <Button size="sm" onClick={saveEditing}>
+                      <Save className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={cancelEditing}>
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="font-medium">{data.currentHospital}</p>
+                )}
               </div>
             )}
             {data.clinicAffiliations && data.clinicAffiliations.length > 0 && (
@@ -221,9 +458,28 @@ export default function FinalReviewStep({
           
           <div>
             <p className="text-sm text-gray-600 mb-2">Biografía Profesional</p>
-            <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg">
-              {data.bio}
-            </p>
+            {editingField === 'bio' ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={fieldValue}
+                  onChange={(e) => setFieldValue(e.target.value)}
+                  placeholder="Biografía profesional"
+                  rows={4}
+                />
+                <div className="flex space-x-2">
+                  <Button size="sm" onClick={saveEditing}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg">
+                {data.bio}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -310,7 +566,7 @@ export default function FinalReviewStep({
             </p>
             <div className="text-sm text-gray-700">
               {Object.entries(data.workingHours)
-                .filter(([_, schedule]) => schedule.isWorkingDay)
+                .filter(([, schedule]) => schedule.isWorkingDay)
                 .map(([day, schedule]) => {
                   const dayLabels: Record<string, string> = {
                     monday: 'Lun', tuesday: 'Mar', wednesday: 'Mié',
@@ -346,9 +602,13 @@ export default function FinalReviewStep({
             <div className="text-sm">
               <label htmlFor="terms" className="cursor-pointer">
                 Acepto los{' '}
-                <a href="/terminos" target="_blank" className="text-blue-600 hover:underline">
-                  Términos y Condiciones de Uso <ExternalLink className="h-3 w-3 inline" />
-                </a>{' '}
+                <button 
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => setShowTermsModal(true)}
+                >
+                  Términos y Condiciones de Uso
+                </button>{' '}
                 de Red-Salud
               </label>
             </div>
@@ -363,9 +623,13 @@ export default function FinalReviewStep({
             <div className="text-sm">
               <label htmlFor="privacy" className="cursor-pointer">
                 Acepto la{' '}
-                <a href="/privacidad" target="_blank" className="text-blue-600 hover:underline">
-                  Política de Privacidad <ExternalLink className="h-3 w-3 inline" />
-                </a>{' '}
+                <button 
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => setShowPrivacyModal(true)}
+                >
+                  Política de Privacidad
+                </button>{' '}
                 y el tratamiento de mis datos personales
               </label>
             </div>
@@ -380,9 +644,13 @@ export default function FinalReviewStep({
             <div className="text-sm">
               <label htmlFor="compliance" className="cursor-pointer">
                 Acepto cumplir con las{' '}
-                <a href="/compliance-medico" target="_blank" className="text-blue-600 hover:underline">
-                  Normas de Compliance Médico <ExternalLink className="h-3 w-3 inline" />
-                </a>{' '}
+                <button 
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => setShowComplianceModal(true)}
+                >
+                  Normas de Compliance Médico
+                </button>{' '}
                 y las regulaciones de Red-Salud
               </label>
             </div>
@@ -436,6 +704,40 @@ export default function FinalReviewStep({
           </div>
         </div>
       </div>
+
+      {/* Modales de Términos y Condiciones */}
+      <TermsModal
+        open={showTermsModal}
+        onOpenChange={setShowTermsModal}
+        onAccept={() => {
+          setAgreedToTerms(true);
+          setShowTermsModal(false);
+        }}
+        title="Términos y Condiciones de Uso"
+        content={termsContent}
+      />
+
+      <TermsModal
+        open={showPrivacyModal}
+        onOpenChange={setShowPrivacyModal}
+        onAccept={() => {
+          setAgreedToPrivacy(true);
+          setShowPrivacyModal(false);
+        }}
+        title="Política de Privacidad"
+        content={privacyContent}
+      />
+
+      <TermsModal
+        open={showComplianceModal}
+        onOpenChange={setShowComplianceModal}
+        onAccept={() => {
+          setAgreedToCompliance(true);
+          setShowComplianceModal(false);
+        }}
+        title="Normas de Compliance Médico"
+        content={complianceContent}
+      />
     </div>
   );
 }

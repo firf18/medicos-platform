@@ -148,13 +148,26 @@ export default function ProfessionalInfoStep({
 
   // Efecto para validar cuando cambian los datos
   useEffect(() => {
+    // Solo validar si hay datos y no estamos en estado de carga
+    if (isLoading) return;
+    
+    // Verificar si el usuario ha interactuado con el formulario
+    const hasUserInteracted = Object.values(formData).some(value => {
+      if (typeof value === 'string') return value.trim() !== '';
+      if (typeof value === 'number') return value > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      return false;
+    });
+    
+    if (!hasUserInteracted) return;
+    
     const isValid = validateForm();
     if (isValid) {
       onStepComplete('professional_info');
     } else {
       onStepError('professional_info', 'Complete todos los campos correctamente');
     }
-  }, [formData, onStepComplete, onStepError]);
+  }, [formData, isLoading, onStepComplete, onStepError]);
 
   return (
     <div className="space-y-6">

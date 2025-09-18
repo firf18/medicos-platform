@@ -61,7 +61,8 @@
     "src/providers/index.ts",
     "src/hooks/useAuth.ts",
     "src/hooks/use-toast.ts",
-    "src/hooks/index.ts",
+    "src/hooks/useFlexibleNavigation.ts",
+    "src/hooks/useRealTimeFieldValidation.ts",
     "middleware.ts"
   ],
   "exclude": [

@@ -327,7 +327,11 @@ export default function RegisterForm() {
                             ? 'border-blue-500 bg-blue-50' 
                             : 'border-gray-300 bg-white'
                         }`}
-                        onClick={() => setFormData({...formData, role: 'doctor'})}
+                        onClick={() => {
+                          setFormData({...formData, role: 'doctor'});
+                          // Redirigir a la página específica de registro de médicos
+                          router.push('/register/doctor');
+                        }}
                       >
                         <div className="flex items-center">
                           <div className="flex items-center h-5">
