@@ -1,92 +1,62 @@
 /**
- * Especialidades Médicas - Red-Salud Platform
- * Estructura completa de especialidades médicas con dashboards personalizados
+ * ⚠️ DEPRECATED: Medical Specialties - Red-Salud Platform
+ * 
+ * Este archivo ha sido refactorizado por responsabilidades para cumplir con el
+ * principio de responsabilidad única y mejorar la mantenibilidad.
+ * 
+ * NUEVA ESTRUCTURA MODULAR:
+ * - src/types/medical-specialties.types.ts (Tipos e interfaces)
+ * - src/lib/medical-specialties/base-features.ts (Características base)
+ * - src/lib/medical-specialties/base-validations.ts (Validaciones base)
+ * - src/lib/medical-specialties/specialties-data.ts (Datos de especialidades)
+ * - src/lib/medical-specialties/specialty-utils.ts (Funciones de utilidad)
+ * - src/lib/medical-specialties/index.ts (Punto de entrada principal)
+ * 
+ * @deprecated Usar imports desde src/lib/medical-specialties/ en lugar de este archivo
  */
 
-export interface MedicalSpecialty {
-  id: string;
-  name: string;
-  description: string;
-  category: SpecialtyCategory;
-  icon: string;
-  color: string;
-  dashboardFeatures: DashboardFeature[];
-  requiredValidations: ValidationRequirement[];
-  estimatedPatients: 'low' | 'medium' | 'high';
-  complexity: 'basic' | 'intermediate' | 'advanced';
-}
+console.warn(`
+⚠️  DEPRECATION WARNING: medical-specialties.ts
+Este archivo ha sido refactorizado por responsabilidades médicas.
+Usa los nuevos archivos modulares en src/lib/medical-specialties/
 
-export type SpecialtyCategory = 
-  | 'medicina_general'
-  | 'especialidades_medicas'
-  | 'especialidades_quirurgicas'
-  | 'medicina_diagnostica'
-  | 'medicina_alternativa'
-  | 'salud_mental'
-  | 'pediatria_especializada';
+Ejemplo de migración:
+ANTES: import { MEDICAL_SPECIALTIES, getSpecialtyById } from './medical-specialties'
+DESPUÉS: import { MEDICAL_SPECIALTIES, getSpecialtyById } from './medical-specialties/index'
 
-export interface DashboardFeature {
-  id: string;
-  name: string;
-  description: string;
-  component: string;
-  priority: 'essential' | 'important' | 'optional';
-  category: 'patient_management' | 'diagnostics' | 'treatments' | 'analytics' | 'communication';
-}
+O más específico:
+import { MEDICAL_SPECIALTIES } from './medical-specialties/specialties-data'
+import { getSpecialtyById } from './medical-specialties/specialty-utils'
+`);
 
-export interface ValidationRequirement {
-  id: string;
-  name: string;
-  description: string;
-  required: boolean;
-  documentType: 'license' | 'certificate' | 'specialty_board' | 'hospital_affiliation';
-}
+// ============================================================================
+// RE-EXPORTACIONES PARA COMPATIBILIDAD HACIA ATRÁS
+// ============================================================================
 
-// Características base que todos los dashboards médicos comparten
-export const BASE_DASHBOARD_FEATURES: DashboardFeature[] = [
-  {
-    id: 'patient_list',
-    name: 'Lista de Pacientes',
-    description: 'Gestión y visualización de pacientes asignados',
-    component: 'PatientListWidget',
-    priority: 'essential',
-    category: 'patient_management'
-  },
-  {
-    id: 'appointments',
-    name: 'Agenda de Citas',
-    description: 'Calendario y programación de citas médicas',
-    component: 'AppointmentCalendarWidget',
-    priority: 'essential',
-    category: 'patient_management'
-  },
-  {
-    id: 'medical_records',
-    name: 'Expedientes Médicos',
-    description: 'Acceso y edición de historiales médicos',
-    component: 'MedicalRecordsWidget',
-    priority: 'essential',
-    category: 'patient_management'
-  },
-  {
-    id: 'notifications',
-    name: 'Notificaciones',
-    description: 'Alertas médicas, recordatorios y comunicaciones',
-    component: 'NotificationsWidget',
-    priority: 'essential',
-    category: 'communication'
-  },
-  {
-    id: 'analytics_basic',
-    name: 'Estadísticas Básicas',
-    description: 'Métricas básicas de consultas y pacientes',
-    component: 'BasicAnalyticsWidget',
-    priority: 'important',
-    category: 'analytics'
-  }
-];
+// Re-exportar tipos principales
+export type {
+  MedicalSpecialty,
+  DashboardFeature,
+  ValidationRequirement,
+  SpecialtyCategory
+} from '@/types/medical-specialties.types';
 
-// Validaciones base requeridas para todos los médicos
+// Re-exportar características base
+export { 
+  BASE_DASHBOARD_FEATURES,
+  getEssentialFeatures,
+  getFeaturesByCategory,
+  getFeaturesByPriority
+} from '@/lib/medical-specialties/base-features';
+
+// ============================================================================
+// DATOS CONSOLIDADOS (VERSIÓN SIMPLIFICADA)
+// ============================================================================
+
+import { MedicalSpecialty, DashboardFeature, ValidationRequirement } from '@/types/medical-specialties.types';
+import { BASE_DASHBOARD_FEATURES } from '@/lib/medical-specialties/base-features';
+
+// Validaciones base para compatibilidad
 export const BASE_VALIDATIONS: ValidationRequirement[] = [
   {
     id: 'medical_license',
@@ -104,12 +74,8 @@ export const BASE_VALIDATIONS: ValidationRequirement[] = [
   }
 ];
 
-/**
- * ESPECIALIDADES MÉDICAS COMPLETAS
- * Organizadas por categorías con dashboards personalizados
- */
+// Especialidades principales para compatibilidad
 export const MEDICAL_SPECIALTIES: MedicalSpecialty[] = [
-  // === MEDICINA GENERAL ===
   {
     id: 'medicina_general',
     name: 'Medicina General',
@@ -120,7 +86,7 @@ export const MEDICAL_SPECIALTIES: MedicalSpecialty[] = [
     estimatedPatients: 'high',
     complexity: 'basic',
     dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
+      ...BASE_DASHBOARD_FEATURES.slice(0, 5), // Solo las características esenciales
       {
         id: 'vital_signs',
         name: 'Signos Vitales',
@@ -128,54 +94,28 @@ export const MEDICAL_SPECIALTIES: MedicalSpecialty[] = [
         component: 'VitalSignsWidget',
         priority: 'essential',
         category: 'diagnostics'
-      },
-      {
-        id: 'prevention_alerts',
-        name: 'Alertas Preventivas',
-        description: 'Recordatorios de vacunas, chequeos preventivos',
-        component: 'PreventionAlertsWidget',
-        priority: 'important',
-        category: 'patient_management'
       }
     ],
     requiredValidations: BASE_VALIDATIONS
   },
-
-  // === ESPECIALIDADES MÉDICAS ===
   {
     id: 'cardiologia',
     name: 'Cardiología',
-    description: 'Diagnóstico y tratamiento de enfermedades del corazón y sistema cardiovascular',
+    description: 'Diagnóstico y tratamiento de enfermedades del corazón',
     category: 'especialidades_medicas',
     icon: 'Heart',
     color: 'red',
     estimatedPatients: 'medium',
     complexity: 'advanced',
     dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
+      ...BASE_DASHBOARD_FEATURES.slice(0, 5),
       {
         id: 'ecg_monitor',
         name: 'Monitor ECG',
-        description: 'Seguimiento de electrocardiogramas y ritmos cardíacos',
+        description: 'Seguimiento de electrocardiogramas',
         component: 'ECGMonitorWidget',
         priority: 'essential',
         category: 'diagnostics'
-      },
-      {
-        id: 'cardiac_risk',
-        name: 'Evaluación de Riesgo Cardíaco',
-        description: 'Calculadora de riesgo cardiovascular y estratificación',
-        component: 'CardiacRiskWidget',
-        priority: 'essential',
-        category: 'diagnostics'
-      },
-      {
-        id: 'medication_interactions',
-        name: 'Interacciones Medicamentosas',
-        description: 'Verificación de interacciones entre medicamentos cardíacos',
-        component: 'MedicationInteractionsWidget',
-        priority: 'important',
-        category: 'treatments'
       }
     ],
     requiredValidations: [
@@ -189,98 +129,24 @@ export const MEDICAL_SPECIALTIES: MedicalSpecialty[] = [
       }
     ]
   },
-
-  {
-    id: 'dermatologia',
-    name: 'Dermatología',
-    description: 'Diagnóstico y tratamiento de enfermedades de la piel, cabello y uñas',
-    category: 'especialidades_medicas',
-    icon: 'Zap',
-    color: 'orange',
-    estimatedPatients: 'medium',
-    complexity: 'intermediate',
-    dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
-      {
-        id: 'skin_analysis',
-        name: 'Análisis Dermatológico',
-        description: 'Herramientas para análisis y seguimiento de lesiones cutáneas',
-        component: 'SkinAnalysisWidget',
-        priority: 'essential',
-        category: 'diagnostics'
-      },
-      {
-        id: 'photo_documentation',
-        name: 'Documentación Fotográfica',
-        description: 'Seguimiento fotográfico de lesiones y tratamientos',
-        component: 'PhotoDocumentationWidget',
-        priority: 'essential',
-        category: 'diagnostics'
-      },
-      {
-        id: 'treatment_protocols',
-        name: 'Protocolos de Tratamiento',
-        description: 'Guías de tratamiento para condiciones dermatológicas comunes',
-        component: 'TreatmentProtocolsWidget',
-        priority: 'important',
-        category: 'treatments'
-      }
-    ],
-    requiredValidations: [
-      ...BASE_VALIDATIONS,
-      {
-        id: 'dermatology_board',
-        name: 'Certificación en Dermatología',
-        description: 'Título de especialidad en dermatología',
-        required: true,
-        documentType: 'specialty_board'
-      }
-    ]
-  },
-
-  // === PEDIATRÍA ===
   {
     id: 'pediatria',
     name: 'Pediatría',
-    description: 'Atención médica especializada para bebés, niños y adolescentes',
+    description: 'Atención médica especializada para niños',
     category: 'pediatria_especializada',
     icon: 'Baby',
     color: 'green',
     estimatedPatients: 'high',
     complexity: 'intermediate',
     dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
+      ...BASE_DASHBOARD_FEATURES.slice(0, 5),
       {
         id: 'growth_charts',
         name: 'Gráficas de Crecimiento',
-        description: 'Seguimiento de peso, talla y desarrollo infantil',
+        description: 'Seguimiento de peso y talla infantil',
         component: 'GrowthChartsWidget',
         priority: 'essential',
         category: 'diagnostics'
-      },
-      {
-        id: 'vaccination_schedule',
-        name: 'Esquema de Vacunación',
-        description: 'Calendario y seguimiento de vacunas pediátricas',
-        component: 'VaccinationScheduleWidget',
-        priority: 'essential',
-        category: 'patient_management'
-      },
-      {
-        id: 'developmental_milestones',
-        name: 'Hitos del Desarrollo',
-        description: 'Evaluación de desarrollo psicomotor y cognitivo',
-        component: 'DevelopmentalMilestonesWidget',
-        priority: 'important',
-        category: 'diagnostics'
-      },
-      {
-        id: 'parent_communication',
-        name: 'Comunicación con Padres',
-        description: 'Canal específico para comunicación con padres/tutores',
-        component: 'ParentCommunicationWidget',
-        priority: 'important',
-        category: 'communication'
       }
     ],
     requiredValidations: [
@@ -293,213 +159,86 @@ export const MEDICAL_SPECIALTIES: MedicalSpecialty[] = [
         documentType: 'specialty_board'
       }
     ]
-  },
-
-  // === ESPECIALIDADES QUIRÚRGICAS ===
-  {
-    id: 'cirugia_general',
-    name: 'Cirugía General',
-    description: 'Diagnóstico y tratamiento quirúrgico de enfermedades abdominales y generales',
-    category: 'especialidades_quirurgicas',
-    icon: 'Scissors',
-    color: 'purple',
-    estimatedPatients: 'medium',
-    complexity: 'advanced',
-    dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
-      {
-        id: 'surgical_schedule',
-        name: 'Programación Quirúrgica',
-        description: 'Calendario de cirugías y preparación preoperatoria',
-        component: 'SurgicalScheduleWidget',
-        priority: 'essential',
-        category: 'patient_management'
-      },
-      {
-        id: 'preop_checklist',
-        name: 'Lista Preoperatoria',
-        description: 'Checklist de evaluación preoperatoria y autorización',
-        component: 'PreOpChecklistWidget',
-        priority: 'essential',
-        category: 'treatments'
-      },
-      {
-        id: 'postop_followup',
-        name: 'Seguimiento Postoperatorio',
-        description: 'Monitoreo de recuperación y cuidados postquirúrgicos',
-        component: 'PostOpFollowupWidget',
-        priority: 'essential',
-        category: 'patient_management'
-      },
-      {
-        id: 'surgical_outcomes',
-        name: 'Resultados Quirúrgicos',
-        description: 'Análisis de resultados y complicaciones quirúrgicas',
-        component: 'SurgicalOutcomesWidget',
-        priority: 'important',
-        category: 'analytics'
-      }
-    ],
-    requiredValidations: [
-      ...BASE_VALIDATIONS,
-      {
-        id: 'surgery_board',
-        name: 'Certificación en Cirugía General',
-        description: 'Título de especialidad en cirugía general',
-        required: true,
-        documentType: 'specialty_board'
-      },
-      {
-        id: 'hospital_privileges',
-        name: 'Privilegios Hospitalarios',
-        description: 'Documento de privilegios quirúrgicos en hospital',
-        required: true,
-        documentType: 'hospital_affiliation'
-      }
-    ]
-  },
-
-  // === MEDICINA DIAGNÓSTICA ===
-  {
-    id: 'radiologia',
-    name: 'Radiología',
-    description: 'Diagnóstico por imágenes médicas y procedimientos intervencionistas',
-    category: 'medicina_diagnostica',
-    icon: 'Scan',
-    color: 'teal',
-    estimatedPatients: 'high',
-    complexity: 'advanced',
-    dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
-      {
-        id: 'imaging_viewer',
-        name: 'Visor de Imágenes',
-        description: 'Visualización y análisis de estudios radiológicos DICOM',
-        component: 'ImagingViewerWidget',
-        priority: 'essential',
-        category: 'diagnostics'
-      },
-      {
-        id: 'radiology_reports',
-        name: 'Informes Radiológicos',
-        description: 'Creación y gestión de informes radiológicos estructurados',
-        component: 'RadiologyReportsWidget',
-        priority: 'essential',
-        category: 'diagnostics'
-      },
-      {
-        id: 'study_prioritization',
-        name: 'Priorización de Estudios',
-        description: 'Sistema de priorización de estudios urgentes y rutinarios',
-        component: 'StudyPrioritizationWidget',
-        priority: 'important',
-        category: 'patient_management'
-      },
-      {
-        id: 'ai_assistance',
-        name: 'Asistencia IA',
-        description: 'Herramientas de inteligencia artificial para análisis de imágenes',
-        component: 'AIAssistanceWidget',
-        priority: 'optional',
-        category: 'diagnostics'
-      }
-    ],
-    requiredValidations: [
-      ...BASE_VALIDATIONS,
-      {
-        id: 'radiology_board',
-        name: 'Certificación en Radiología',
-        description: 'Título de especialidad en radiología e imágenes',
-        required: true,
-        documentType: 'specialty_board'
-      }
-    ]
-  },
-
-  // === SALUD MENTAL ===
-  {
-    id: 'psiquiatria',
-    name: 'Psiquiatría',
-    description: 'Diagnóstico y tratamiento de trastornos mentales y del comportamiento',
-    category: 'salud_mental',
-    icon: 'Brain',
-    color: 'indigo',
-    estimatedPatients: 'medium',
-    complexity: 'advanced',
-    dashboardFeatures: [
-      ...BASE_DASHBOARD_FEATURES,
-      {
-        id: 'mental_health_assessments',
-        name: 'Evaluaciones de Salud Mental',
-        description: 'Escalas de evaluación y cuestionarios psiquiátricos',
-        component: 'MentalHealthAssessmentsWidget',
-        priority: 'essential',
-        category: 'diagnostics'
-      },
-      {
-        id: 'medication_monitoring',
-        name: 'Monitoreo de Medicación',
-        description: 'Seguimiento de efectividad y efectos secundarios de psicofármacos',
-        component: 'MedicationMonitoringWidget',
-        priority: 'essential',
-        category: 'treatments'
-      },
-      {
-        id: 'therapy_notes',
-        name: 'Notas de Terapia',
-        description: 'Registro estructurado de sesiones terapéuticas',
-        component: 'TherapyNotesWidget',
-        priority: 'essential',
-        category: 'patient_management'
-      },
-      {
-        id: 'crisis_management',
-        name: 'Manejo de Crisis',
-        description: 'Protocolos y herramientas para situaciones de crisis mental',
-        component: 'CrisisManagementWidget',
-        priority: 'important',
-        category: 'patient_management'
-      }
-    ],
-    requiredValidations: [
-      ...BASE_VALIDATIONS,
-      {
-        id: 'psychiatry_board',
-        name: 'Certificación en Psiquiatría',
-        description: 'Título de especialidad en psiquiatría',
-        required: true,
-        documentType: 'specialty_board'
-      }
-    ]
   }
 ];
 
+// ============================================================================
+// FUNCIONES DE UTILIDAD PARA COMPATIBILIDAD
+// ============================================================================
+
 /**
- * Función para obtener especialidad por ID
+ * @deprecated Usar getSpecialtyById desde ./medical-specialties/specialty-utils
  */
 export function getSpecialtyById(id: string): MedicalSpecialty | undefined {
+  console.warn('getSpecialtyById está deprecated. Usar desde medical-specialties/specialty-utils');
   return MEDICAL_SPECIALTIES.find(specialty => specialty.id === id);
 }
 
 /**
- * Función para obtener especialidades por categoría
+ * @deprecated Usar getSpecialtiesByCategory desde ./medical-specialties/specialty-utils
  */
-export function getSpecialtiesByCategory(category: SpecialtyCategory): MedicalSpecialty[] {
+export function getSpecialtiesByCategory(category: string): MedicalSpecialty[] {
+  console.warn('getSpecialtiesByCategory está deprecated. Usar desde medical-specialties/specialty-utils');
   return MEDICAL_SPECIALTIES.filter(specialty => specialty.category === category);
 }
 
 /**
- * Función para obtener dashboards features por especialidad
+ * @deprecated Usar getDashboardFeatures desde ./medical-specialties/specialty-utils
  */
 export function getDashboardFeatures(specialtyId: string): DashboardFeature[] {
+  console.warn('getDashboardFeatures está deprecated. Usar desde medical-specialties/specialty-utils');
   const specialty = getSpecialtyById(specialtyId);
   return specialty?.dashboardFeatures || BASE_DASHBOARD_FEATURES;
 }
 
 /**
- * Función para obtener validaciones requeridas por especialidad
+ * @deprecated Usar getRequiredValidations desde ./medical-specialties/specialty-utils
  */
 export function getRequiredValidations(specialtyId: string): ValidationRequirement[] {
+  console.warn('getRequiredValidations está deprecated. Usar desde medical-specialties/specialty-utils');
   const specialty = getSpecialtyById(specialtyId);
   return specialty?.requiredValidations || BASE_VALIDATIONS;
 }
+
+// ============================================================================
+// DOCUMENTACIÓN DE MIGRACIÓN
+// ============================================================================
+
+/**
+ * GUÍA DE MIGRACIÓN COMPLETA:
+ * 
+ * 1. TIPOS E INTERFACES:
+ *    ANTES: import { MedicalSpecialty } from './medical-specialties'
+ *    DESPUÉS: import { MedicalSpecialty } from '@/types/medical-specialties.types'
+ * 
+ * 2. CARACTERÍSTICAS BASE:
+ *    ANTES: import { BASE_DASHBOARD_FEATURES } from './medical-specialties'
+ *    DESPUÉS: import { BASE_DASHBOARD_FEATURES } from './medical-specialties/base-features'
+ * 
+ * 3. DATOS DE ESPECIALIDADES:
+ *    ANTES: import { MEDICAL_SPECIALTIES } from './medical-specialties'
+ *    DESPUÉS: import { MEDICAL_SPECIALTIES } from './medical-specialties/specialties-data'
+ * 
+ * 4. FUNCIONES DE UTILIDAD:
+ *    ANTES: import { getSpecialtyById } from './medical-specialties'
+ *    DESPUÉS: import { getSpecialtyById } from './medical-specialties/specialty-utils'
+ * 
+ * 5. IMPORTACIÓN COMPLETA:
+ *    NUEVO: import * from './medical-specialties' // Importa todo desde el índice
+ * 
+ * BENEFICIOS DE LA NUEVA ESTRUCTURA:
+ * ✅ Separación clara de responsabilidades
+ * ✅ Archivos más pequeños y mantenibles (<300 líneas)
+ * ✅ Mejor organización por tipo de función
+ * ✅ Reutilización mejorada de componentes
+ * ✅ Testing más granular y específico
+ * ✅ Escalabilidad mejorada para nuevas especialidades
+ * 
+ * ESTRUCTURA FINAL:
+ * - types/medical-specialties.types.ts: Todas las interfaces y tipos
+ * - base-features.ts: Características comunes a todos los dashboards
+ * - base-validations.ts: Validaciones comunes a todas las especialidades
+ * - specialties-data.ts: Definiciones completas de especialidades médicas
+ * - specialty-utils.ts: Funciones de búsqueda, filtrado y utilidades
+ * - index.ts: Punto de entrada centralizado
+ */

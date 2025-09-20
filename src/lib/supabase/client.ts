@@ -2,7 +2,10 @@ import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/lib/database.types'
 import Logger from '@/lib/logger'
 
-const logger = new Logger({ level: 'debug', prefix: 'Supabase' })
+const logger = new Logger({ 
+  level: process.env.NODE_ENV === 'development' ? 'info' : 'error', 
+  prefix: 'Supabase' 
+})
 
 // Función para limpiar cookies corruptas de Supabase
 const clearCorruptedCookies = () => {
@@ -120,7 +123,7 @@ export const createClient = () => {
         detectSessionInUrl: true,
         flowType: 'pkce',
         autoRefreshToken: true,
-        debug: process.env.NODE_ENV === 'development'
+        debug: false // Desactivar debug de Supabase para reducir logs
       }
     });
     

@@ -25,11 +25,44 @@ export * from './hooks/use-protected-route';
 export * from './hooks/use-realtime-subscription';
 export * from './hooks/use-advanced-session';
 
-// Exportar contextos
-export * from './contexts/auth-context';
+// Exportar hooks refactorizados
+export { useDoctorRegistration } from './hooks/useDoctorRegistration';
+
+// Exportar servicios
+export { DoctorRegistrationValidationService } from './services/doctor-registration-validation';
+export { DoctorRegistrationApiService } from './services/doctor-registration-api';
 
 // Exportar utilidades
 export * from './utils/role-utils';
+export { DoctorRegistrationLogger } from './utils/doctor-registration-logger';
+
+// Exportar contextos
+export * from './contexts/auth-context';
 
 // Exportar esquemas
 export * from './schemas/auth.schema';
+
+// Exportar tipos refactorizados
+export type {
+  DoctorRegistrationData,
+  RegistrationStep,
+  RegistrationProgress,
+  ValidationResult,
+  ApiResponse,
+  LogContext,
+  UseDoctorRegistrationProps,
+  UseDoctorRegistrationReturn,
+  StepComponentProps,
+  NavigationProps,
+  ValidationService,
+  ApiService,
+  LoggingService,
+  RegistrationConfig
+} from './types/doctor-registration';
+
+// Exportar constantes
+export {
+  REGISTRATION_STEPS,
+  STEP_LABELS,
+  STEP_DESCRIPTIONS
+} from './types/doctor-registration';

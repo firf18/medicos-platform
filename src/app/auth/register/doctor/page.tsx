@@ -10,6 +10,7 @@ import Link from 'next/link';
 // Importar componentes de los pasos de registro
 import PersonalInfoStep from '@/components/auth/doctor-registration/PersonalInfoStep';
 import ProfessionalInfoStep from '@/components/auth/doctor-registration/ProfessionalInfoStep';
+import LicenseVerificationStep from '@/components/auth/doctor-registration/LicenseVerificationStep';
 import SpecialtySelectionStep from '@/components/auth/doctor-registration/SpecialtySelectionStep';
 import IdentityVerificationStep from '@/components/auth/doctor-registration/IdentityVerificationStep';
 import DashboardConfigurationStep from '@/components/auth/doctor-registration/DashboardConfigurationStep';
@@ -17,7 +18,7 @@ import FinalReviewStep from '@/components/auth/doctor-registration/FinalReviewSt
 
 import { RegistrationStep } from '@/types/medical/specialties';
 import { getSpecialtyById } from '@/lib/medical-specialties';
-import { useDoctorRegistration } from '@/hooks/useDoctorRegistration';
+import { useDoctorRegistration } from '@/domains/auth/hooks/useDoctorRegistration';
 import { useAutoCleanup } from '@/hooks/useAutoCleanup';
 
 const REGISTRATION_STEPS: { step: RegistrationStep; title: string; description: string }[] = [
@@ -59,12 +60,13 @@ export default function DoctorRegistrationPage() {
     registrationData,
     progress,
     isSubmitting,
-    updateRegistrationData,
-    nextStep,
-    prevStep,
-    markStepAsCompleted,
-    setStepError,
-    handleFinalSubmission,
+    updateData,
+    goToNextStep,
+    goToPreviousStep,
+    handleStepComplete,
+    handleStepError,
+    submitRegistration,
+    canProceedNext,
     formErrors
   } = useDoctorRegistration({
     onRegistrationComplete: (data) => {
@@ -91,16 +93,21 @@ export default function DoctorRegistrationPage() {
   const currentStepIndex = REGISTRATION_STEPS.findIndex(s => s.step === progress.currentStep);
   const progressPercentage = ((currentStepIndex + 1) / REGISTRATION_STEPS.length) * 100;
 
+  // Wrapper para onFinalSubmit que ignora el return value
+  const handleFinalSubmitWrapper = async (): Promise<void> => {
+    await submitRegistration();
+  };
+
   // Renderizar el paso actual
   const renderCurrentStep = () => {
     const commonProps = {
       data: registrationData,
-      updateData: updateRegistrationData,
-      onStepComplete: markStepAsCompleted,
-      onStepError: setStepError,
+      updateData,
+      onStepComplete: handleStepComplete,
+      onStepError: handleStepError,
       isLoading: isSubmitting,
-      onFinalSubmit: handleFinalSubmission,
-      formErrors: formErrors
+      onFinalSubmit: handleFinalSubmitWrapper,
+      formErrors
     };
 
     switch (progress.currentStep) {
@@ -108,6 +115,8 @@ export default function DoctorRegistrationPage() {
         return <PersonalInfoStep {...commonProps} />;
       case 'professional_info':
         return <ProfessionalInfoStep {...commonProps} />;
+      case 'license_verification':
+        return <LicenseVerificationStep {...commonProps} />;
       case 'specialty_selection':
         return <SpecialtySelectionStep {...commonProps} />;
       case 'identity_verification':
@@ -235,7 +244,7 @@ export default function DoctorRegistrationPage() {
           {currentStepIndex > 0 ? (
             <Button
               variant="outline"
-              onClick={prevStep}
+              onClick={goToPreviousStep}
               disabled={isSubmitting}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -246,8 +255,8 @@ export default function DoctorRegistrationPage() {
           )}
 
           <Button
-            onClick={nextStep}
-            disabled={!progress.canProceed || currentStepIndex === REGISTRATION_STEPS.length - 1 || isSubmitting}
+            onClick={goToNextStep}
+            disabled={!canProceedNext() || isSubmitting}
           >
             Siguiente
             <ArrowRight className="h-4 w-4 ml-2" />

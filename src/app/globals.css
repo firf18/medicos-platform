@@ -1,10 +1,10 @@
+/* Importar estilos del componente de teléfono primero */
+@import '../components/ui/phone-input.css';
+
 /* Establecer la directiva @tailwind para cada una de las capas de Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Importar estilos del componente de teléfono */
-@import '../components/ui/phone-input.css';
 
 /* Establecer estilos base para el documento HTML */
 @layer base {

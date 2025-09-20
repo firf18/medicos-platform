@@ -5,6 +5,13 @@ const nextConfig = {
     optimizePackageImports: ['@radix-ui/react-dialog', 'lucide-react'],
   },
   
+  // Configuración de logging para desarrollo
+  logging: {
+    fetches: {
+      fullUrl: false,
+    },
+  },
+  
   // Configuración de imágenes
   images: {
     remotePatterns: [
