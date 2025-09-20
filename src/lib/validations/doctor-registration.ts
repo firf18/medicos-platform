@@ -91,10 +91,12 @@ export const professionalInfoSchema = z.object({
     .int('Los años de experiencia deben ser un número entero')
     .optional(),
   
-  // Información académica y profesional - REQUERIDOS
+  // Información académica y profesional - OPCIONALES durante el proceso de registro
   university: z.string()
     .min(2, 'Debes seleccionar tu universidad de graduación')
-    .max(100, 'La universidad no puede exceder 100 caracteres'),
+    .max(100, 'La universidad no puede exceder 100 caracteres')
+    .optional()
+    .or(z.literal('')),
   
   graduationYear: z.number()
     .min(1950, 'El año de graduación no puede ser anterior a 1950')
@@ -104,7 +106,9 @@ export const professionalInfoSchema = z.object({
   
   medicalBoard: z.string()
     .min(2, 'Debes seleccionar tu colegio médico')
-    .max(100, 'El colegio médico no puede exceder 100 caracteres'),
+    .max(100, 'El colegio médico no puede exceder 100 caracteres')
+    .optional()
+    .or(z.literal('')),
   
   bio: z.string()
     .min(100, 'La biografía debe tener al menos 100 caracteres')
@@ -118,9 +122,10 @@ export const professionalInfoSchema = z.object({
     .optional()
     .or(z.literal('')),
   
-  // Validación de documento - REQUERIDOS para el paso professional_info
+  // Validación de documento - OPCIONALES durante el proceso de registro
   documentType: z.enum(['cedula_identidad', 'cedula_extranjera'])
-    .refine((type) => type !== undefined, 'Debes seleccionar un tipo de documento'),
+    .refine((type) => type !== undefined, 'Debes seleccionar un tipo de documento')
+    .optional(),
   
   documentNumber: z.string()
     .min(6, 'El número de documento debe tener al menos 6 caracteres')
@@ -129,6 +134,8 @@ export const professionalInfoSchema = z.object({
       // Esta validación se hará en el componente con el contexto completo
       return true;
     }, 'Formato de documento inválido para el tipo seleccionado')
+    .optional()
+    .or(z.literal(''))
 });
 
 // ============================================================================

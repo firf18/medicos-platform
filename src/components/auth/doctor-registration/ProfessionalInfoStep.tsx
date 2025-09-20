@@ -300,52 +300,50 @@ export default function ProfessionalInfoStep({
   }, [formData.documentType]); // Simplificadas las dependencias
 
   // Validar formulario
+  // Validar formulario usando el esquema Zod actualizado
   const validateForm = useCallback((): boolean => {
-    const newErrors: FormErrors = {};
-
-    // Validar años de experiencia
-    if (formData.yearsOfExperience < 0) {
-      newErrors.yearsOfExperience = 'Los años de experiencia no pueden ser negativos';
-    } else if (formData.yearsOfExperience > 60) {
-      newErrors.yearsOfExperience = 'Ingresa un número realista de años de experiencia';
+    try {
+      // Importar el esquema dinámicamente para evitar problemas de dependencias
+      const { professionalInfoSchema } = require('@/lib/validations/doctor-registration');
+      
+      const result = professionalInfoSchema.safeParse(formData);
+      
+      if (result.success) {
+        // Verificar que la licencia esté verificada (validación adicional)
+        if (!verificationResult?.isValid) {
+          setErrors({ documentNumber: 'La licencia profesional debe ser verificada' });
+          return false;
+        }
+        
+        setErrors({});
+        return true;
+      } else {
+        // Convertir errores de Zod a formato de errores del formulario
+        const newErrors: FormErrors = {};
+        
+        result.error.errors.forEach((error) => {
+          const field = error.path[0] as keyof FormErrors;
+          if (field) {
+            newErrors[field] = error.message;
+          }
+        });
+        
+        // Agregar validación adicional de verificación de licencia
+        if (!verificationResult?.isValid) {
+          newErrors.documentNumber = 'La licencia profesional debe ser verificada';
+        }
+        
+        setErrors(newErrors);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error en validación:', error);
+      return false;
     }
-
-    // Validar número de documento
-    if (!formData.documentNumber.trim()) {
-      newErrors.documentNumber = 'El número de documento es requerido';
-    } else if (formData.documentNumber.length < 6) {
-      newErrors.documentNumber = 'El número de documento debe tener al menos 6 caracteres';
-    }
-
-    // Validar biografía
-    if (!formData.bio.trim()) {
-      newErrors.bio = 'La biografía profesional es requerida';
-    } else if (formData.bio.trim().length < 100) {
-      newErrors.bio = 'La biografía debe tener al menos 100 caracteres';
-    } else if (formData.bio.trim().length > 1000) {
-      newErrors.bio = 'La biografía no debe exceder los 1000 caracteres';
-    }
-
-    // Validar universidad
-    if (!formData.university.trim()) {
-      newErrors.university = 'Debes seleccionar tu universidad de graduación';
-    }
-
-    // Validar colegio médico
-    if (!formData.medicalBoard.trim()) {
-      newErrors.medicalBoard = 'Debes seleccionar tu colegio médico';
-    }
-
-    // Verificar que la licencia esté verificada
-    if (!verificationResult?.isValid) {
-      newErrors.documentNumber = 'La licencia profesional debe ser verificada';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   }, [formData, verificationResult]);
 
   // Efecto para validar cuando cambian los datos (solo para mostrar errores)
+  // Validación automática solo para mostrar errores en tiempo real
   useEffect(() => {
     // Solo validar si hay datos y no estamos en estado de carga
     if (isLoading) return;
@@ -361,8 +359,57 @@ export default function ProfessionalInfoStep({
     if (!hasUserInteracted) return;
     
     // Solo validar para mostrar errores, NO llamar onStepComplete automáticamente
-    validateForm();
-  }, [formData, isLoading, validateForm]);
+    // Usar una función local para evitar dependencias circulares
+    const validateForErrors = () => {
+      const newErrors: FormErrors = {};
+
+      // Validar años de experiencia
+      if (formData.yearsOfExperience < 0) {
+        newErrors.yearsOfExperience = 'Los años de experiencia no pueden ser negativos';
+      }
+
+      // Validar biografía
+      if (formData.bio && formData.bio.length > 0 && formData.bio.length < 100) {
+        newErrors.bio = 'La biografía debe tener al menos 100 caracteres';
+      }
+
+      // Validar número de licencia
+      if (formData.licenseNumber && formData.licenseNumber.length > 0) {
+        if (formData.licenseNumber.length < 6) {
+          newErrors.licenseNumber = 'El número de licencia debe tener al menos 6 caracteres';
+        } else if (!/^[A-Z0-9-]+$/.test(formData.licenseNumber)) {
+          newErrors.licenseNumber = 'El número de licencia solo puede contener letras mayúsculas, números y guiones';
+        }
+      }
+
+      // Validar documento
+      if (!formData.documentType) {
+        newErrors.documentType = 'Debes seleccionar un tipo de documento';
+      }
+
+      if (!formData.documentNumber) {
+        newErrors.documentNumber = 'Debes ingresar tu número de documento';
+      } else if (formData.documentType === 'cedula_identidad' && !/^V-\d{7,8}$/.test(formData.documentNumber)) {
+        newErrors.documentNumber = 'Formato de cédula venezolana inválido (V-XXXXXXXX)';
+      } else if (formData.documentType === 'cedula_extranjera' && !/^E-\d{7,8}$/.test(formData.documentNumber)) {
+        newErrors.documentNumber = 'Formato de cédula extranjera inválido (E-XXXXXXXX)';
+      }
+
+      // Validar universidad
+      if (!formData.university.trim()) {
+        newErrors.university = 'Debes seleccionar tu universidad de graduación';
+      }
+
+      // Validar colegio médico
+      if (!formData.medicalBoard.trim()) {
+        newErrors.medicalBoard = 'Debes seleccionar tu colegio médico';
+      }
+
+      setErrors(newErrors);
+    };
+
+    validateForErrors();
+  }, [formData, isLoading]); // Removido validateForm de las dependencias
 
   // Función para manejar navegación manual
   const handleManualNext = useCallback(() => {
