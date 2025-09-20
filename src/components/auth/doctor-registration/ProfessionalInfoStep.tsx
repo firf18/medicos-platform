@@ -68,6 +68,8 @@ interface ProfessionalInfoStepProps {
   onStepComplete: (step: 'professional_info') => void;
   onStepError: (step: 'professional_info', error: string) => void;
   isLoading: boolean;
+  onNext?: () => void; // Nueva prop para manejar navegación manual
+  onPrevious?: () => void; // Nueva prop para manejar navegación manual
 }
 
 // Interfaces para tipar los estados y errores
@@ -75,7 +77,7 @@ interface FormData {
   yearsOfExperience: number;
   bio: string;
   licenseNumber: string;
-  documentType: 'cedula_identidad' | 'cedula_extranjera' | 'matricula';
+  documentType: 'cedula_identidad' | 'cedula_extranjera';
   documentNumber: string;
   university: string;
   graduationYear: number | undefined;
@@ -98,7 +100,9 @@ export default function ProfessionalInfoStep({
   updateData,
   onStepComplete,
   onStepError,
-  isLoading
+  isLoading,
+  onNext,
+  onPrevious
 }: ProfessionalInfoStepProps) {
   const [formData, setFormData] = useState<FormData>({
     yearsOfExperience: data.yearsOfExperience || 0,
@@ -159,11 +163,11 @@ export default function ProfessionalInfoStep({
     if (field === 'documentType') {
       setFormData(prev => ({ 
         ...prev, 
-        [field]: value as 'cedula_identidad' | 'cedula_extranjera' | 'matricula',
+        [field]: value as 'cedula_identidad' | 'cedula_extranjera',
         documentNumber: '' // Limpiar el campo
       }));
       updateData({ 
-        [field]: value as 'cedula_identidad' | 'cedula_extranjera' | 'matricula',
+        [field]: value as 'cedula_identidad' | 'cedula_extranjera',
         documentNumber: '' // Limpiar también en el estado global
       });
       
@@ -193,16 +197,6 @@ export default function ProfessionalInfoStep({
           } else {
             processedValue = 'E-' + numbersOnly;
           }
-        }
-      } else if (documentType === 'matricula') {
-        // Para matrícula, solo números después de MPPS-
-        if (processedValue.startsWith('MPPS-')) {
-          const numberPart = processedValue.substring(5);
-          const numbersOnly = numberPart.replace(/[^0-9]/g, '');
-          processedValue = 'MPPS-' + numbersOnly;
-        } else if (processedValue.length > 0 && !processedValue.startsWith('MPPS-')) {
-          const numbersOnly = processedValue.replace(/[^0-9]/g, '');
-          processedValue = 'MPPS-' + numbersOnly;
         }
       }
       
@@ -351,7 +345,7 @@ export default function ProfessionalInfoStep({
     return Object.keys(newErrors).length === 0;
   }, [formData, verificationResult]);
 
-  // Efecto para validar cuando cambian los datos
+  // Efecto para validar cuando cambian los datos (solo para mostrar errores)
   useEffect(() => {
     // Solo validar si hay datos y no estamos en estado de carga
     if (isLoading) return;
@@ -366,13 +360,83 @@ export default function ProfessionalInfoStep({
     
     if (!hasUserInteracted) return;
     
+    // Solo validar para mostrar errores, NO llamar onStepComplete automáticamente
+    validateForm();
+  }, [formData, isLoading, validateForm]);
+
+  // Función para manejar navegación manual
+  const handleManualNext = useCallback(() => {
+    console.log('🎯 ProfessionalInfoStep.handleManualNext() llamado');
+    
     const isValid = validateForm();
+    console.log(`🔍 Validación del formulario: ${isValid ? 'VÁLIDA' : 'INVÁLIDA'}`);
+    
     if (isValid) {
+      console.log('📝 Guardando datos antes de avanzar...');
+      // Guardar datos antes de avanzar
+      updateData({
+        yearsOfExperience: formData.yearsOfExperience,
+        bio: formData.bio,
+        licenseNumber: formData.licenseNumber,
+        documentType: formData.documentType,
+        documentNumber: formData.documentNumber,
+        university: formData.university,
+        graduationYear: formData.graduationYear,
+        medicalBoard: formData.medicalBoard
+      });
+      
+      console.log('✅ Marcando paso como completado...');
+      // Marcar paso como completado
       onStepComplete('professional_info');
+      
+      console.log('➡️ Llamando función de navegación del hook...');
+      // Llamar función de navegación si está disponible
+      if (onNext) {
+        onNext();
+        console.log('✅ Función onNext ejecutada');
+      } else {
+        console.log('❌ Función onNext no está disponible');
+      }
     } else {
+      console.log('❌ Error: Formulario inválido');
       onStepError('professional_info', 'Complete todos los campos correctamente');
     }
-  }, [formData, isLoading]); // Removidas las dependencias problemáticas
+  }, [formData, validateForm, updateData, onStepComplete, onStepError, onNext]);
+
+  // Función para manejar navegación hacia atrás
+  const handleManualPrevious = useCallback(() => {
+    // Guardar datos antes de retroceder
+    updateData({
+      yearsOfExperience: formData.yearsOfExperience,
+      bio: formData.bio,
+      licenseNumber: formData.licenseNumber,
+      documentType: formData.documentType,
+      documentNumber: formData.documentNumber,
+      university: formData.university,
+      graduationYear: formData.graduationYear,
+      medicalBoard: formData.medicalBoard
+    });
+    
+    // Llamar función de navegación si está disponible
+    if (onPrevious) {
+      onPrevious();
+    }
+  }, [formData, updateData, onPrevious]);
+
+  // Exponer funciones de navegación al componente padre
+  useEffect(() => {
+    // Exponer funciones globalmente para que el componente padre pueda acceder
+    (window as any).professional_infoStepNavigation = {
+      handleNext: handleManualNext,
+      handlePrevious: handleManualPrevious,
+      isValid: () => validateForm()
+    };
+    
+    return () => {
+      // Limpiar al desmontar
+      delete (window as any).professional_infoStepNavigation;
+    };
+  }, [handleManualNext, handleManualPrevious, validateForm]);
 
   // Cleanup del timeout al desmontar
   useEffect(() => {

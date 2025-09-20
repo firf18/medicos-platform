@@ -110,19 +110,11 @@ export default function DoctorRegistrationWizard() {
             onStepComplete={handleStepComplete}
             onStepError={handleStepError}
             isLoading={isSubmitting}
+            onNext={nextStep}
+            onPrevious={prevStep}
           />
         );
-      case 'specialty_selection':
-        return (
-          <SpecialtySelectionStep
-            data={registrationData}
-            updateData={updateRegistrationData}
-            onStepComplete={handleStepComplete}
-            onStepError={handleStepError}
-            isLoading={isSubmitting}
-          />
-        );
-      case 'license_verification': // Nuevo caso
+      case 'license_verification': // Fase 2: Verificación SACS
         return (
           <LicenseVerificationStep
             data={registrationData}
@@ -130,6 +122,18 @@ export default function DoctorRegistrationWizard() {
             onStepComplete={handleStepComplete}
             onStepError={handleStepError}
             isLoading={isSubmitting}
+          />
+        );
+      case 'specialty_selection': // Fase 3: Selección de especialidades
+        return (
+          <SpecialtySelectionStep
+            data={registrationData}
+            updateData={updateRegistrationData}
+            onStepComplete={handleStepComplete}
+            onStepError={handleStepError}
+            isLoading={isSubmitting}
+            onNext={nextStep}
+            onPrevious={prevStep}
           />
         );
       case 'identity_verification':

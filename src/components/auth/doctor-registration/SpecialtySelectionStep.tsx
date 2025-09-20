@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +57,8 @@ interface SpecialtySelectionStepProps {
   onStepComplete: (step: 'specialty_selection') => void;
   onStepError: (step: 'specialty_selection', error: string) => void;
   isLoading: boolean;
+  onNext?: () => void; // Nueva prop para manejar navegación manual
+  onPrevious?: () => void; // Nueva prop para manejar navegación manual
 }
 
 export default function SpecialtySelectionStep({
@@ -64,7 +66,9 @@ export default function SpecialtySelectionStep({
   updateData,
   onStepComplete,
   onStepError,
-  isLoading
+  isLoading,
+  onNext,
+  onPrevious
 }: SpecialtySelectionStepProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<SpecialtyCategory | 'all'>('all');
@@ -100,14 +104,76 @@ export default function SpecialtySelectionStep({
     });
   };
 
-  // Validar y marcar como completado
-  useEffect(() => {
-    if (selectedSpecialty) {
-      onStepComplete('specialty_selection');
-    } else {
+  // Función para validar el formulario
+  const validateForm = useCallback(() => {
+    if (!selectedSpecialty) {
       onStepError('specialty_selection', 'Debes seleccionar una especialidad médica');
+      return false;
     }
-  }, [selectedSpecialty, onStepComplete, onStepError]);
+    return true;
+  }, [selectedSpecialty, onStepError]);
+
+  // Función para manejar navegación manual hacia adelante
+  const handleManualNext = useCallback(() => {
+    const isValid = validateForm();
+    if (isValid) {
+      // Guardar datos antes de avanzar
+      if (selectedSpecialty) {
+        updateData({ 
+          specialtyId: selectedSpecialty.id,
+          selectedFeatures: selectedSpecialty.dashboardFeatures.map(f => f.id)
+        });
+      }
+      
+      // Marcar paso como completado
+      onStepComplete('specialty_selection');
+      
+      // Llamar función de navegación si está disponible
+      if (onNext) {
+        onNext();
+      }
+    }
+  }, [selectedSpecialty, validateForm, updateData, onStepComplete, onNext]);
+
+  // Función para manejar navegación hacia atrás
+  const handleManualPrevious = useCallback(() => {
+    // Guardar datos antes de retroceder
+    if (selectedSpecialty) {
+      updateData({ 
+        specialtyId: selectedSpecialty.id,
+        selectedFeatures: selectedSpecialty.dashboardFeatures.map(f => f.id)
+      });
+    }
+    
+    // Llamar función de navegación si está disponible
+    if (onPrevious) {
+      onPrevious();
+    }
+  }, [selectedSpecialty, updateData, onPrevious]);
+
+  // Exponer funciones de navegación al componente padre
+  useEffect(() => {
+    // Exponer funciones globalmente para que el componente padre pueda acceder
+    (window as any).specialty_selectionStepNavigation = {
+      handleNext: handleManualNext,
+      handlePrevious: handleManualPrevious,
+      isValid: () => validateForm()
+    };
+    
+    return () => {
+      // Limpiar al desmontar
+      delete (window as any).specialty_selectionStepNavigation;
+    };
+  }, [handleManualNext, handleManualPrevious, validateForm]);
+
+  // Efecto para validar cuando cambian los datos (solo para mostrar errores)
+  useEffect(() => {
+    // Solo validar si hay datos y no estamos en estado de carga
+    if (isLoading) return;
+    
+    // Solo validar para mostrar errores, NO llamar onStepComplete automáticamente
+    validateForm();
+  }, [selectedSpecialty, isLoading, validateForm]);
 
   return (
     <div className="space-y-6">

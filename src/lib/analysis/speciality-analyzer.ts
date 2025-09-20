@@ -288,15 +288,22 @@ function detectSpecialty(sacsData: SACSData): string {
 
 /**
  * Determina qué dashboards puede acceder el médico
+ * IMPORTANTE: Todos los médicos tienen acceso al dashboard de medicina general
  */
 function determineDashboardAccess(specialty: string, sacsData: SACSData): DashboardAccess {
   const specialtyConfig = MEDICAL_SPECIALTIES[specialty as keyof typeof MEDICAL_SPECIALTIES];
   
   if (specialtyConfig) {
+    // Garantizar que todos los médicos tengan acceso a medicina general
+    const allowedDashboards = [...new Set([
+      'general-medicine', // Siempre incluir medicina general
+      ...specialtyConfig.dashboards
+    ])];
+    
     return {
-      allowedDashboards: specialtyConfig.dashboards,
+      allowedDashboards,
       primaryDashboard: specialtyConfig.primary,
-      reason: `Acceso autorizado como ${specialtyConfig.description}`,
+      reason: `Acceso autorizado como ${specialtyConfig.description} + medicina general`,
       requiresApproval: false
     };
   }

@@ -610,7 +610,10 @@ export function useDoctorRegistration({
   }, [registrationData, autoSaveProgress]);
 
   const nextStep = useCallback(async () => {
+    console.log('🎯 Hook.nextStep() llamado');
     const currentStep = progress.currentStep;
+    console.log(`📍 Paso actual: ${currentStep}`);
+    
     let validationResult = { isValid: true, errors: [] };
 
     logger.info('registration', 'Attempting to move to next step', {
@@ -641,6 +644,7 @@ export function useDoctorRegistration({
     }
 
     if (!validationResult.isValid) {
+      console.log('❌ Validación falló:', validationResult.errors);
       logger.warn('registration', 'Step validation failed', {
         step: currentStep,
         errors: validationResult.errors
@@ -650,22 +654,26 @@ export function useDoctorRegistration({
       return;
     }
 
+    console.log('✅ Validación exitosa, avanzando...');
     // Marcar paso como completado y avanzar
     markStepAsCompleted(currentStep);
     
     const steps: RegistrationStep[] = [
       'personal_info',
       'professional_info', 
-      'specialty_selection',
-      'license_verification', // Nuevo paso
+      'license_verification', // Fase 2: Verificación SACS
+      'specialty_selection',   // Fase 3: Selección de especialidades
       'identity_verification',
       'dashboard_configuration',
       'final_review'
     ];
     
     const currentIndex = steps.indexOf(currentStep);
+    console.log(`📍 Índice actual: ${currentIndex} de ${steps.length - 1}`);
+    
     if (currentIndex < steps.length - 1) {
       const nextStepValue = steps[currentIndex + 1];
+      console.log(`➡️ Avanzando a: ${nextStepValue}`);
       
       logger.info('registration', 'Moving to next step', {
         from: currentStep,
@@ -680,11 +688,15 @@ export function useDoctorRegistration({
           completedSteps: [...prev.completedSteps, currentStep]
         };
         
+        console.log('📈 Progreso actualizado:', updatedProgress);
+        
         // Guardar progreso automáticamente
         autoSaveProgress(registrationData, updatedProgress);
         
         return updatedProgress;
       });
+    } else {
+      console.log('⚠️ Ya estamos en el último paso');
     }
   }, [progress.currentStep, registrationData, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateLicenseVerification, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted, setStepError, autoSaveProgress]);
 
@@ -692,8 +704,8 @@ export function useDoctorRegistration({
     const steps: RegistrationStep[] = [
       'personal_info',
       'professional_info', 
-      'specialty_selection',
-      'license_verification', // Nuevo paso
+      'license_verification', // Fase 2: Verificación SACS
+      'specialty_selection',   // Fase 3: Selección de especialidades
       'identity_verification',
       'dashboard_configuration',
       'final_review'

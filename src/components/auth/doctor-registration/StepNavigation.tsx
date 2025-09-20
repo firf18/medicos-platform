@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   User, 
@@ -54,7 +55,53 @@ export default function StepNavigation({
     onPrevious
   });
 
-  const progressPercentage = ((getStepIndex(currentStep) + 1) / STEPS.length) * 100;
+  // Función para manejar navegación hacia adelante
+  const handleNext = useCallback(() => {
+    console.log('🔄 StepNavigation.handleNext() llamado');
+    console.log(`📍 Paso actual: ${currentStep}`);
+    
+    // Verificar si el paso actual tiene funciones de navegación específicas
+    const stepNavigation = (window as any)[`${currentStep}StepNavigation`];
+    console.log(`🔍 Buscando funciones específicas para: ${currentStep}StepNavigation`);
+    console.log(`🔍 Función encontrada:`, stepNavigation ? 'SÍ' : 'NO');
+    
+    if (stepNavigation && stepNavigation.handleNext) {
+      console.log('✅ Usando función específica del paso');
+      // Usar función específica del paso
+      stepNavigation.handleNext();
+    } else {
+      console.log('⚠️ Usando función general del hook');
+      // Usar función general
+      onNext();
+    }
+  }, [currentStep, onNext]);
+
+  // Función para manejar navegación hacia atrás
+  const handlePrevious = useCallback(() => {
+    // Verificar si el paso actual tiene funciones de navegación específicas
+    const stepNavigation = (window as any)[`${currentStep}StepNavigation`];
+    
+    if (stepNavigation && stepNavigation.handlePrevious) {
+      // Usar función específica del paso
+      stepNavigation.handlePrevious();
+    } else {
+      // Usar función general
+      onPrevious();
+    }
+  }, [currentStep, onPrevious]);
+
+  // Función para verificar si se puede proceder
+  const canProceedToNext = useCallback(() => {
+    // Verificar si el paso actual tiene función de validación específica
+    const stepNavigation = (window as any)[`${currentStep}StepNavigation`];
+    
+    if (stepNavigation && typeof stepNavigation.isValid === 'function') {
+      return stepNavigation.isValid();
+    }
+    
+    // Usar validación general
+    return canProceed;
+  }, [currentStep, canProceed]);
 
   return (
     <div className="space-y-6">
@@ -135,15 +182,15 @@ export default function StepNavigation({
       {/* Botones de Navegación */}
       <div className="flex justify-between">
         <Button
-          onClick={onPrevious}
+          onClick={handlePrevious}
           disabled={currentStep === 'personal_info' || isSubmitting}
           variant="outline"
         >
           Anterior
         </Button>
         <Button
-          onClick={onNext}
-          disabled={!canProceed || isSubmitting}
+          onClick={handleNext}
+          disabled={!canProceedToNext() || isSubmitting}
         >
           {isSubmitting ? 'Procesando...' : currentStep === 'final_review' ? 'Completar Registro' : 'Siguiente'}
         </Button>

@@ -58,35 +58,43 @@ export const personalInfoSchema = z.object({
 // ============================================================================
 
 export const professionalInfoSchema = z.object({
+  // Campos opcionales durante el proceso de registro
   licenseNumber: z.string()
     .min(6, 'El número de licencia debe tener al menos 6 caracteres')
     .max(20, 'El número de licencia no puede exceder 20 caracteres')
-    .regex(/^[A-Z0-9-]+$/, 'El número de licencia solo puede contener letras mayúsculas, números y guiones'),
+    .regex(/^[A-Z0-9-]+$/, 'El número de licencia solo puede contener letras mayúsculas, números y guiones')
+    .optional()
+    .or(z.literal('')),
   
   licenseState: z.string()
     .min(2, 'Debe seleccionar un estado')
-    .max(50, 'El estado no puede exceder 50 caracteres'),
+    .max(50, 'El estado no puede exceder 50 caracteres')
+    .optional()
+    .or(z.literal('')),
   
   licenseExpiry: z.string()
     .refine((date) => {
+      if (!date || date === '') return true; // Permitir vacío durante el proceso
       const expiryDate = new Date(date);
       const today = new Date();
       const oneYearFromNow = new Date();
       oneYearFromNow.setFullYear(today.getFullYear() + 1);
       
       return expiryDate > today && expiryDate <= oneYearFromNow;
-    }, 'La licencia debe estar vigente y no expirar en más de un año'),
+    }, 'La licencia debe estar vigente y no expirar en más de un año')
+    .optional()
+    .or(z.literal('')),
   
   yearsOfExperience: z.number()
     .min(0, 'Los años de experiencia no pueden ser negativos')
     .max(60, 'Los años de experiencia no pueden exceder 60 años')
-    .int('Los años de experiencia deben ser un número entero'),
-  
-  // Información académica y profesional
-  university: z.string()
-    .min(2, 'La universidad debe tener al menos 2 caracteres')
-    .max(100, 'La universidad no puede exceder 100 caracteres')
+    .int('Los años de experiencia deben ser un número entero')
     .optional(),
+  
+  // Información académica y profesional - REQUERIDOS
+  university: z.string()
+    .min(2, 'Debes seleccionar tu universidad de graduación')
+    .max(100, 'La universidad no puede exceder 100 caracteres'),
   
   graduationYear: z.number()
     .min(1950, 'El año de graduación no puede ser anterior a 1950')
@@ -95,21 +103,24 @@ export const professionalInfoSchema = z.object({
     .optional(),
   
   medicalBoard: z.string()
-    .min(2, 'El colegio médico debe tener al menos 2 caracteres')
-    .max(100, 'El colegio médico no puede exceder 100 caracteres')
-    .optional(),
+    .min(2, 'Debes seleccionar tu colegio médico')
+    .max(100, 'El colegio médico no puede exceder 100 caracteres'),
   
   bio: z.string()
     .min(100, 'La biografía debe tener al menos 100 caracteres')
     .max(1000, 'La biografía no puede exceder 1000 caracteres')
     .refine((bio) => {
+      if (!bio || bio === '') return true; // Permitir vacío durante el proceso
       // Verificar que no contenga información personal inapropiada
       const inappropriateWords = ['teléfono', 'dirección', 'email personal', 'casa'];
       return !inappropriateWords.some(word => bio.toLowerCase().includes(word));
-    }, 'La biografía no debe contener información de contacto personal'),
+    }, 'La biografía no debe contener información de contacto personal')
+    .optional()
+    .or(z.literal('')),
   
-  // Validación de documento
-  documentType: z.enum(['cedula_identidad', 'cedula_extranjera', 'matricula']),
+  // Validación de documento - REQUERIDOS para el paso professional_info
+  documentType: z.enum(['cedula_identidad', 'cedula_extranjera'])
+    .refine((type) => type !== undefined, 'Debes seleccionar un tipo de documento'),
   
   documentNumber: z.string()
     .min(6, 'El número de documento debe tener al menos 6 caracteres')
@@ -142,7 +153,7 @@ export const specialtySelectionSchema = z.object({
 // ============================================================================
 
 export const licenseVerificationSchema = z.object({
-  documentType: z.enum(['cedula_identidad', 'pasaporte', 'matricula'])
+  documentType: z.enum(['cedula_identidad', 'cedula_extranjera'])
     .refine((type) => type !== undefined, 'Tipo de documento requerido'),
   
   documentNumber: z.string()
