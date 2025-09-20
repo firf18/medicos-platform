@@ -2,8 +2,24 @@
  * Tipos TypeScript para Especialidades Médicas - Red-Salud
  */
 
-export interface DoctorRegistrationData {
-  // Datos básicos del médico
+export interface WorkingDay {
+  isWorkingDay: boolean;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface WorkingHours {
+  monday: WorkingDay;
+  tuesday: WorkingDay;
+  wednesday: WorkingDay;
+  thursday: WorkingDay;
+  friday: WorkingDay;
+  saturday: WorkingDay;
+  sunday: WorkingDay;
+}
+
+export type DoctorRegistrationData = {
+  // Información personal
   firstName: string;
   lastName: string;
   email: string;
@@ -11,113 +27,49 @@ export interface DoctorRegistrationData {
   password: string;
   confirmPassword: string;
   
-  // Información médica
+  // Información profesional
   specialtyId: string;
   subSpecialties?: string[];
   licenseNumber: string;
   licenseState: string;
   licenseExpiry: string;
-  
-  // Información profesional
   yearsOfExperience: number;
-  currentHospital?: string;
-  clinicAffiliations?: string[];
   bio: string;
+  
+  // Información académica y profesional
+  university?: string;
+  graduationYear?: number;
+  medicalBoard?: string;
+  
+  // Verificación de identidad
+  identityVerification?: {
+    verificationId: string;
+    status: 'pending' | 'verified' | 'failed';
+    documentType: 'cedula_identidad' | 'cedula_extranjera';
+    documentNumber: string;
+    verifiedAt: string;
+    verificationResults?: {
+      faceMatch: boolean;
+      documentValid: boolean;
+      livenessCheck: boolean;
+      amlScreening: boolean;
+    };
+  };
   
   // Configuración del dashboard
   selectedFeatures: string[];
   workingHours: WorkingHours;
   
-  // Validación de identidad (Didit.me)
-  identityVerification?: IdentityVerificationData;
-}
+  // Nuevos campos para verificación de licencia
+  documentType?: 'cedula_identidad' | 'cedula_extranjera';
+  documentNumber?: string;
+};
 
-export interface WorkingHours {
-  monday: DaySchedule;
-  tuesday: DaySchedule;
-  wednesday: DaySchedule;
-  thursday: DaySchedule;
-  friday: DaySchedule;
-  saturday: DaySchedule;
-  sunday: DaySchedule;
-}
-
-export interface DaySchedule {
-  isWorkingDay: boolean;
-  startTime?: string; // "09:00"
-  endTime?: string;   // "17:00"
-  breakStart?: string;
-  breakEnd?: string;
-}
-
-export interface IdentityVerificationData {
-  verificationId: string;
-  status: 'pending' | 'verified' | 'failed';
-  documentType: string;
-  documentNumber: string;
-  verifiedAt?: string;
-  verificationResults?: {
-    faceMatch: boolean;
-    documentValid: boolean;
-    livenessCheck: boolean;
-    amlScreening: boolean;
-  };
-}
-
-export interface DashboardConfiguration {
-  doctorId: string;
-  specialtyId: string;
-  enabledFeatures: string[];
-  layout: DashboardLayout;
-  preferences: DashboardPreferences;
-}
-
-export interface DashboardLayout {
-  widgets: WidgetPosition[];
-  theme: 'light' | 'dark' | 'auto';
-  sidebarCollapsed: boolean;
-}
-
-export interface WidgetPosition {
-  widgetId: string;
-  position: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  visible: boolean;
-}
-
-export interface DashboardPreferences {
-  language: 'es' | 'en';
-  timezone: string;
-  notifications: NotificationPreferences;
-  dataRetention: DataRetentionSettings;
-}
-
-export interface NotificationPreferences {
-  email: boolean;
-  sms: boolean;
-  push: boolean;
-  emergencyOnly: boolean;
-  appointmentReminders: boolean;
-  labResults: boolean;
-  patientMessages: boolean;
-}
-
-export interface DataRetentionSettings {
-  patientDataRetention: number; // days
-  appointmentHistory: number;   // days
-  communicationLogs: number;    // days
-  analyticsData: number;        // days
-}
-
-// Estados del registro médico
 export type RegistrationStep = 
   | 'personal_info'
   | 'professional_info'
   | 'specialty_selection'
+  | 'license_verification'  // Nuevo paso
   | 'identity_verification'
   | 'dashboard_configuration'
   | 'final_review'
@@ -156,7 +108,7 @@ export interface DidItVerificationResponse {
     };
     document: {
       valid: boolean;
-      extractedData: Record<string, any>;
+      extractedData: Record<string, unknown>;
     };
     biometric: {
       faceMatch: boolean;

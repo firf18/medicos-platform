@@ -7,7 +7,7 @@ export const emailSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .min(8, 'La contraseña debe tener al menos 6 caracteres')
   .regex(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
     'La contraseña debe contener al menos una letra mayúscula, una minúscula y un número'

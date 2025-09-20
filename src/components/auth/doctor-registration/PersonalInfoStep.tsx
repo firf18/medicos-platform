@@ -116,7 +116,7 @@ export default function PersonalInfoStep({
         }
       });
     }
-  }, [data.firstName, data.lastName, data.email, data.phone, data.password, data.confirmPassword, formData]);
+  }, [data.firstName, data.lastName, data.email, data.phone, data.password, data.confirmPassword]); // Removido formData de dependencias
 
   // Marcar campos como tocados si hay datos guardados al cargar inicialmente
   useEffect(() => {
@@ -136,7 +136,7 @@ export default function PersonalInfoStep({
         setFieldTouched(prev => ({ ...prev, ...fieldsToTouch }));
       }
     }
-  }, []); // Solo ejecutar una vez al montar el componente
+  }, [fieldTouched, formData]); // Solo ejecutar una vez al montar el componente
 
   // Validar email
   const validateEmail = useCallback((email: string): boolean => {
@@ -275,7 +275,12 @@ export default function PersonalInfoStep({
     formData.email, 
     formData.password, 
     validateEmail, 
-    checkEmailAvailability
+    checkEmailAvailability,
+    emailValidationResult,
+    formErrors,
+    isEmailAvailable,
+    passwordStrength,
+    passwordValidationResult
   ]);
 
   // Marcar campo como tocado solo si tiene contenido
@@ -576,7 +581,7 @@ export default function PersonalInfoStep({
     // Este efecto se ejecuta cuando cambian las dependencias relevantes
     // Se asegura de que las validaciones se mantengan actualizadas
     console.log('Form validation effect triggered');
-  }, [checkEmailAvailability, emailValidationResult, formData.email, formData.password, formErrors, passwordValidationResult, validateEmail]);
+  }, [checkEmailAvailability, emailValidationResult, formData.email, formData.password, formErrors, passwordValidationResult, validateEmail, isEmailAvailable, passwordStrength, formData, fieldTouched]);
 
   return (
     <div className="space-y-6">

@@ -9,8 +9,8 @@ const validateEmail = (email: string): boolean => {
 const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = []
   
-  if (password.length < 8) {
-    errors.push('La contraseña debe tener al menos 8 caracteres')
+  if (password.length < 6) {
+    errors.push('La contraseña debe tener al menos 6 caracteres')
   }
   
   if (!/[A-Z]/.test(password)) {
@@ -115,7 +115,7 @@ describe('Validation Utilities', () => {
 
     it('provides specific error messages for password requirements', () => {
       const result = validatePassword('short')
-      expect(result.errors).toContain('La contraseña debe tener al menos 8 caracteres')
+      expect(result.errors).toContain('La contraseña debe tener al menos 6 caracteres')
       expect(result.errors).toContain('La contraseña debe contener al menos una letra mayúscula')
       expect(result.errors).toContain('La contraseña debe contener al menos un número')
       expect(result.errors).toContain('La contraseña debe contener al menos un carácter especial')

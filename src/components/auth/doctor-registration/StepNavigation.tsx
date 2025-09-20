@@ -7,7 +7,8 @@ import {
   Stethoscope, 
   Shield, 
   LayoutDashboard, 
-  CheckCircle 
+  CheckCircle,
+  IdCard
 } from 'lucide-react';
 import { RegistrationStep } from '@/types/medical/specialties';
 import { useFlexibleNavigation } from '@/hooks/useFlexibleNavigation';
@@ -17,10 +18,10 @@ import { DoctorRegistrationData } from '@/types/medical/specialties';
 const STEPS = [
   { id: 'personal_info', title: 'Información Personal', icon: User },
   { id: 'professional_info', title: 'Información Profesional', icon: FileText },
+  { id: 'license_verification', title: 'Verificación SACs', icon: IdCard },
   { id: 'specialty_selection', title: 'Especialidad Médica', icon: Stethoscope },
-  { id: 'identity_verification', title: 'Verificación de Identidad', icon: Shield },
   { id: 'dashboard_configuration', title: 'Configuración del Dashboard', icon: LayoutDashboard },
-  { id: 'final_review', title: 'Revisión Final', icon: CheckCircle }
+  { id: 'identity_verification', title: 'Verificación Didit', icon: Shield }
 ];
 
 interface StepNavigationProps {

@@ -64,8 +64,8 @@ export default function SpecializedRegisterPage() {
     
     if (!password) {
       newErrors.password = 'La contraseña es requerida';
-    } else if (password.length < 8) {
-      newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
+    } else if (password.length < 6) {
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/.test(password)) {
       newErrors.password = 'La contraseña debe contener al menos una mayúscula, una minúscula y un número';
     }

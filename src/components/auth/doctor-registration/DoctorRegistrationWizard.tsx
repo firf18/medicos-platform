@@ -7,6 +7,7 @@ import InteractiveTutorial from '@/components/auth/doctor-registration/Interacti
 import PersonalInfoStep from '@/components/auth/doctor-registration/PersonalInfoStep';
 import ProfessionalInfoStep from '@/components/auth/doctor-registration/ProfessionalInfoStep';
 import SpecialtySelectionStep from '@/components/auth/doctor-registration/SpecialtySelectionStep';
+import LicenseVerificationStep from '@/components/auth/doctor-registration/LicenseVerificationStep'; // Nuevo paso
 import IdentityVerificationStep from '@/components/auth/doctor-registration/IdentityVerificationStep';
 import DashboardConfigurationStep from '@/components/auth/doctor-registration/DashboardConfigurationStep';
 import FinalReviewStep from '@/components/auth/doctor-registration/FinalReviewStep';
@@ -14,7 +15,7 @@ import StepNavigation from '@/components/auth/doctor-registration/StepNavigation
 import RegistrationProgressIndicator from '@/components/auth/doctor-registration/RegistrationProgressIndicator';
 import RegistrationNotifications from '@/components/auth/doctor-registration/RegistrationNotifications';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DoctorRegistrationData, RegistrationStep } from '@/types/medical/specialties';
+import { DoctorRegistrationData, RegistrationStep, RegistrationProgress } from '@/types/medical/specialties';
 
 export default function DoctorRegistrationWizard() {
   const {
@@ -78,10 +79,10 @@ export default function DoctorRegistrationWizard() {
     }));
   };
 
-  const handleContinueFromProgress = (data: DoctorRegistrationData, progress: any) => {
+  const handleContinueFromProgress = (data: DoctorRegistrationData, savedProgress: RegistrationProgress) => {
     // Actualizar los datos y el progreso con los valores guardados
     // Esto requeriría una actualización del hook useDoctorRegistration
-    console.log('Continuando desde progreso guardado:', data, progress);
+    console.log('Continuando desde progreso guardado:', data, savedProgress);
   };
 
   const handleStepChange = (step: RegistrationStep) => {
@@ -114,6 +115,16 @@ export default function DoctorRegistrationWizard() {
       case 'specialty_selection':
         return (
           <SpecialtySelectionStep
+            data={registrationData}
+            updateData={updateRegistrationData}
+            onStepComplete={handleStepComplete}
+            onStepError={handleStepError}
+            isLoading={isSubmitting}
+          />
+        );
+      case 'license_verification': // Nuevo caso
+        return (
+          <LicenseVerificationStep
             data={registrationData}
             updateData={updateRegistrationData}
             onStepComplete={handleStepComplete}

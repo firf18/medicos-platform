@@ -17,13 +17,15 @@ import {
   personalInfoSchema,
   professionalInfoSchema,
   specialtySelectionSchema,
+  licenseVerificationSchema, // Nuevo schema
   identityVerificationSchema,
   dashboardConfigurationSchema,
   completeDoctorRegistrationSchema,
   logSecurityEvent,
   validateDataSensitivity,
   sanitizeInput,
-  validatePasswordStrength
+  validatePasswordStrength,
+  validateDocumentFormat // Nueva función
 } from '@/lib/validations/doctor-registration';
 import { useDoctorRegistrationErrors } from '@/hooks/useFormErrors';
 import { useRegistrationPersistence } from '@/hooks/useRegistrationPersistence';
@@ -76,9 +78,14 @@ export function useDoctorRegistration({
       licenseState: '',
       licenseExpiry: '',
       yearsOfExperience: 0,
-      currentHospital: '',
-      clinicAffiliations: [],
       bio: '',
+      // Información académica y profesional
+      university: '',
+      graduationYear: undefined,
+      medicalBoard: '',
+      // Verificación de documento
+      documentType: undefined,
+      documentNumber: '',
       selectedFeatures: [],
       workingHours: {
         monday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
@@ -99,7 +106,7 @@ export function useDoctorRegistration({
     return savedProgress || {
       currentStep: 'personal_info',
       completedSteps: [],
-      totalSteps: 6,
+      totalSteps: 6, // Actualizado a 6 pasos
       canProceed: false,
       errors: {}
     };
@@ -201,14 +208,14 @@ export function useDoctorRegistration({
       });
 
       return { isValid: true, errors: [] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logSecurityEvent('personal_info_validation_failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
       
       logger.warn('registration', 'Personal info validation failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         fields: Object.keys(data)
       });
       
@@ -222,10 +229,11 @@ export function useDoctorRegistration({
       }
       
       // Manejar otros errores
-      formErrors.setFieldError('general', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      formErrors.setFieldError('general', errorMessage);
       return { 
         isValid: false, 
-        errors: [error.message] 
+        errors: [errorMessage] 
       };
     }
   }, [formErrors]);
@@ -241,13 +249,11 @@ export function useDoctorRegistration({
         licenseState: data.licenseState || '',
         licenseExpiry: data.licenseExpiry || '',
         yearsOfExperience: data.yearsOfExperience || 0,
-        currentHospital: data.currentHospital || '',
-        clinicAffiliations: data.clinicAffiliations || [],
         bio: data.bio || ''
       };
 
       // Sanitizar inputs
-      const sanitizedData: any = {};
+      const sanitizedData: Record<string, string | number | string[]> = {};
       Object.keys(professionalData).forEach(key => {
         const value = professionalData[key as keyof typeof professionalData];
         if (typeof value === 'string') {
@@ -277,14 +283,14 @@ export function useDoctorRegistration({
       });
 
       return { isValid: true, errors: [] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logSecurityEvent('professional_info_validation_failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
       
       logger.warn('registration', 'Professional info validation failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         fields: Object.keys(data)
       });
       
@@ -298,10 +304,11 @@ export function useDoctorRegistration({
       }
       
       // Manejar otros errores
-      formErrors.setFieldError('general', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      formErrors.setFieldError('general', errorMessage);
       return { 
         isValid: false, 
-        errors: [error.message] 
+        errors: [errorMessage] 
       };
     }
   }, [formErrors]);
@@ -333,23 +340,96 @@ export function useDoctorRegistration({
       });
 
       return { isValid: true, errors: [] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logSecurityEvent('specialty_selection_validation_failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
       
       logger.warn('registration', 'Specialty selection validation failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         fields: Object.keys(data)
       });
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return { 
         isValid: false, 
-        errors: [error.message] 
+        errors: [errorMessage] 
       };
     }
   }, []);
+
+  const validateLicenseVerification = useCallback(async (data: Partial<DoctorRegistrationData>) => {
+    try {
+      logger.debug('registration', 'Validating license verification', {
+        documentType: data.documentType,
+        documentNumber: data.documentNumber
+      });
+      
+      const licenseData = {
+        documentType: data.documentType || '',
+        documentNumber: data.documentNumber || ''
+      };
+
+      // Validar con Zod
+      await licenseVerificationSchema.parseAsync(licenseData);
+
+      // Validar formato específico del documento
+      if (licenseData.documentType && licenseData.documentNumber) {
+        const isFormatValid = validateDocumentFormat(licenseData.documentType, licenseData.documentNumber);
+        if (!isFormatValid) {
+          const formatError = getDocumentFormatError(licenseData.documentType);
+          formErrors.setFieldError('documentNumber', formatError);
+          return { isValid: false, errors: [formatError] };
+        }
+      }
+
+      // Limpiar errores si la validación es exitosa
+      formErrors.clearAllErrors();
+
+      // Log de seguridad
+      logSecurityEvent('license_verification_validated', {
+        documentType: licenseData.documentType,
+        documentNumber: licenseData.documentNumber,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info('registration', 'License verification validation successful', {
+        documentType: licenseData.documentType,
+        documentNumber: licenseData.documentNumber
+      });
+
+      return { isValid: true, errors: [] };
+    } catch (error: unknown) {
+      logSecurityEvent('license_verification_validation_failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+      
+      logger.warn('registration', 'License verification validation failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        documentType: data.documentType,
+        documentNumber: data.documentNumber
+      });
+      
+      // Manejar errores de Zod de forma user-friendly
+      if (error instanceof ZodError) {
+        formErrors.setZodError(error);
+        return { 
+          isValid: false, 
+          errors: formErrors.errors.map(e => e.message)
+        };
+      }
+      
+      // Manejar otros errores
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      formErrors.setFieldError('general', errorMessage);
+      return { 
+        isValid: false, 
+        errors: [errorMessage] 
+      };
+    }
+  }, [formErrors]);
 
   const validateIdentityVerification = useCallback(async (data: Partial<DoctorRegistrationData>) => {
     try {
@@ -414,21 +494,22 @@ export function useDoctorRegistration({
       });
 
       return { isValid: true, errors: [] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logSecurityEvent('identity_verification_validation_failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         verificationId: data.identityVerification?.verificationId,
         timestamp: new Date().toISOString()
       });
       
       logger.warn('registration', 'Identity verification validation failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         verificationId: data.identityVerification?.verificationId
       });
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return { 
         isValid: false, 
-        errors: [error.message] 
+        errors: [errorMessage] 
       };
     }
   }, []);
@@ -459,19 +540,20 @@ export function useDoctorRegistration({
       });
 
       return { isValid: true, errors: [] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logSecurityEvent('dashboard_configuration_validation_failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
       
       logger.warn('registration', 'Dashboard configuration validation failed', {
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
       
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return { 
         isValid: false, 
-        errors: [error.message] 
+        errors: [errorMessage] 
       };
     }
   }, [registrationData.workingHours]);
@@ -547,6 +629,9 @@ export function useDoctorRegistration({
       case 'specialty_selection':
         validationResult = await validateSpecialtySelection(registrationData);
         break;
+      case 'license_verification': // Nuevo caso
+        validationResult = await validateLicenseVerification(registrationData);
+        break;
       case 'identity_verification':
         validationResult = await validateIdentityVerification(registrationData);
         break;
@@ -572,6 +657,7 @@ export function useDoctorRegistration({
       'personal_info',
       'professional_info', 
       'specialty_selection',
+      'license_verification', // Nuevo paso
       'identity_verification',
       'dashboard_configuration',
       'final_review'
@@ -600,13 +686,14 @@ export function useDoctorRegistration({
         return updatedProgress;
       });
     }
-  }, [progress.currentStep, registrationData, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted, setStepError, autoSaveProgress]);
+  }, [progress.currentStep, registrationData, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateLicenseVerification, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted, setStepError, autoSaveProgress]);
 
   const prevStep = useCallback(() => {
     const steps: RegistrationStep[] = [
       'personal_info',
       'professional_info', 
       'specialty_selection',
+      'license_verification', // Nuevo paso
       'identity_verification',
       'dashboard_configuration',
       'final_review'
@@ -679,8 +766,8 @@ export function useDoctorRegistration({
       setProgress(prev => {
         const updatedProgress = {
           ...prev,
-          currentStep: 'completed',
-          completedSteps: [...prev.completedSteps, 'final_review']
+          currentStep: 'completed' as RegistrationStep,
+          completedSteps: [...prev.completedSteps, 'final_review' as RegistrationStep]
         };
         autoSaveProgress(registrationData, updatedProgress);
         return updatedProgress;
@@ -696,25 +783,25 @@ export function useDoctorRegistration({
 
       // Callback de éxito
       onRegistrationComplete?.(registrationData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al finalizar registro:', error);
       logSecurityEvent('doctor_registration_finalize_failed', {
-        error: error.message || 'Error desconocido',
+        error: error instanceof Error ? error.message : String(error) || 'Error desconocido',
         email: registrationData.email,
         timestamp: new Date().toISOString()
       });
 
       toast({
         title: 'Error en la finalización',
-        description: error.message || 'Ocurrió un error al finalizar tu registro.',
+        description: error instanceof Error ? error.message : 'Ocurrió un error al finalizar tu registro.',
         variant: 'destructive'
       });
 
-      onRegistrationError?.(error.message || 'Error al finalizar');
+      onRegistrationError?.(error instanceof Error ? error.message : 'Error al finalizar');
     } finally {
       setIsSubmitting(false);
     }
-  }, [registrationData, onRegistrationComplete, onRegistrationError, router, registrationPersistence, autoSaveProgress, toast]);
+  }, [registrationData, onRegistrationComplete, onRegistrationError, router, registrationPersistence, autoSaveProgress]);
 
   // ============================================================================
   // EFECTOS
@@ -748,6 +835,9 @@ export function useDoctorRegistration({
         case 'specialty_selection':
           validationResult = await validateSpecialtySelection(registrationData);
           break;
+        case 'license_verification': // Nuevo caso
+          validationResult = await validateLicenseVerification(registrationData);
+          break;
         case 'identity_verification':
           validationResult = await validateIdentityVerification(registrationData);
           break;
@@ -767,7 +857,25 @@ export function useDoctorRegistration({
     // Debounce para evitar validaciones excesivas
     const timeoutId = setTimeout(validateCurrentStep, 500);
     return () => clearTimeout(timeoutId);
-  }, [registrationData, progress.currentStep, isLoading, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted]);
+  }, [registrationData, progress.currentStep, isLoading, validatePersonalInfo, validateProfessionalInfo, validateSpecialtySelection, validateLicenseVerification, validateIdentityVerification, validateDashboardConfiguration, markStepAsCompleted]);
+
+  // ============================================================================
+  // FUNCIONES AUXILIARES
+  // ============================================================================
+
+  // Obtener mensaje de error de formato según tipo de documento
+  const getDocumentFormatError = (type: string): string => {
+    switch (type) {
+      case 'cedula_identidad':
+        return 'Formato inválido. Debe ser V-XXXXXXXX o E-XXXXXXXX';
+      case 'pasaporte':
+        return 'Formato inválido. Debe ser P-XXXXXXXX';
+      case 'matricula':
+        return 'Formato inválido. Debe ser MPPS-XXXXX, CMC-XXXXX u otros colegios médicos reconocidos';
+      default:
+        return 'Formato de documento inválido';
+    }
+  };
 
   // ============================================================================
   // RETORNO DEL HOOK
@@ -794,6 +902,7 @@ export function useDoctorRegistration({
     validatePersonalInfo,
     validateProfessionalInfo,
     validateSpecialtySelection,
+    validateLicenseVerification, // Nueva función
     validateIdentityVerification,
     validateDashboardConfiguration,
     

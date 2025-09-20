@@ -15,3 +15,4 @@ export * from './useHealthPlans';
 export * from './useSecondOpinion';
 export * from './useSettings';
 export * from './useDiditVerification';
+export * from './useChunkLoadErrorHandler';

@@ -20,11 +20,11 @@ const TEST_DOCTOR = {
   
   // Información profesional
   licenseNumber: 'MED987654321',
-  licenseState: 'CDMX',
+  licenseState: 'Distrito Capital',
   licenseExpiry: '2025-12-31',
   yearsOfExperience: 8,
-  currentHospital: 'Hospital General de México',
-  clinicAffiliations: ['Clínica San Ángel', 'Centro Médico ABC'],
+  currentHospital: 'Hospital Universitario de Caracas',
+  clinicAffiliations: ['Clínica San Rafael', 'Centro Médico Caracas'],
   bio: 'Médico general con especialización en medicina interna y experiencia en atención primaria.',
   
   // Especialidad

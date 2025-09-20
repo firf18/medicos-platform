@@ -10,7 +10,8 @@ import {
   Stethoscope, 
   Shield, 
   LayoutDashboard, 
-  CheckCircle 
+  CheckCircle,
+  IdCard
 } from 'lucide-react';
 import { useRegistrationPersistence } from '@/hooks/useRegistrationPersistence';
 import { DoctorRegistrationData, RegistrationProgress } from '@/types/medical/specialties';
@@ -19,10 +20,10 @@ import { useRouter } from 'next/navigation';
 const STEPS = [
   { id: 'personal_info', title: 'Información Personal', icon: User },
   { id: 'professional_info', title: 'Información Profesional', icon: FileText },
+  { id: 'license_verification', title: 'Verificación SACs', icon: IdCard },
   { id: 'specialty_selection', title: 'Especialidad Médica', icon: Stethoscope },
-  { id: 'identity_verification', title: 'Verificación de Identidad', icon: Shield },
   { id: 'dashboard_configuration', title: 'Configuración del Dashboard', icon: LayoutDashboard },
-  { id: 'final_review', title: 'Revisión Final', icon: CheckCircle }
+  { id: 'identity_verification', title: 'Verificación Didit', icon: Shield }
 ];
 
 interface RegistrationProgressIndicatorProps {
@@ -105,7 +106,7 @@ export default function RegistrationProgressIndicator({
                 Último paso: {STEPS[currentStepIndex]?.title}
               </p>
               <p className="text-xs text-gray-500">
-                Guardado: {savedData.data?.updatedAt || 'Recientemente'}
+                Guardado: Recientemente
               </p>
             </div>
             <div className="flex space-x-2">

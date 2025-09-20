@@ -79,16 +79,24 @@ export const professionalInfoSchema = z.object({
   
   yearsOfExperience: z.number()
     .min(0, 'Los años de experiencia no pueden ser negativos')
-    .max(50, 'Los años de experiencia no pueden exceder 50 años')
+    .max(60, 'Los años de experiencia no pueden exceder 60 años')
     .int('Los años de experiencia deben ser un número entero'),
   
-  currentHospital: z.string()
-    .min(2, 'El nombre del hospital debe tener al menos 2 caracteres')
-    .max(100, 'El nombre del hospital no puede exceder 100 caracteres')
+  // Información académica y profesional
+  university: z.string()
+    .min(2, 'La universidad debe tener al menos 2 caracteres')
+    .max(100, 'La universidad no puede exceder 100 caracteres')
     .optional(),
   
-  clinicAffiliations: z.array(z.string())
-    .max(5, 'No puedes tener más de 5 afiliaciones clínicas')
+  graduationYear: z.number()
+    .min(1950, 'El año de graduación no puede ser anterior a 1950')
+    .max(new Date().getFullYear(), 'El año de graduación no puede ser futuro')
+    .int('El año de graduación debe ser un número entero')
+    .optional(),
+  
+  medicalBoard: z.string()
+    .min(2, 'El colegio médico debe tener al menos 2 caracteres')
+    .max(100, 'El colegio médico no puede exceder 100 caracteres')
     .optional(),
   
   bio: z.string()
@@ -98,7 +106,18 @@ export const professionalInfoSchema = z.object({
       // Verificar que no contenga información personal inapropiada
       const inappropriateWords = ['teléfono', 'dirección', 'email personal', 'casa'];
       return !inappropriateWords.some(word => bio.toLowerCase().includes(word));
-    }, 'La biografía no debe contener información de contacto personal')
+    }, 'La biografía no debe contener información de contacto personal'),
+  
+  // Validación de documento
+  documentType: z.enum(['cedula_identidad', 'cedula_extranjera', 'matricula']),
+  
+  documentNumber: z.string()
+    .min(6, 'El número de documento debe tener al menos 6 caracteres')
+    .max(30, 'El número de documento no puede exceder 30 caracteres')
+    .refine((value) => {
+      // Esta validación se hará en el componente con el contexto completo
+      return true;
+    }, 'Formato de documento inválido para el tipo seleccionado')
 });
 
 // ============================================================================
@@ -116,6 +135,23 @@ export const specialtySelectionSchema = z.object({
   selectedFeatures: z.array(z.string())
     .min(1, 'Debe seleccionar al menos una característica del dashboard')
     .max(10, 'No puedes seleccionar más de 10 características')
+});
+
+// ============================================================================
+// VALIDACIONES DE VERIFICACIÓN DE LICENCIA PROFESIONAL
+// ============================================================================
+
+export const licenseVerificationSchema = z.object({
+  documentType: z.enum(['cedula_identidad', 'pasaporte', 'matricula'])
+    .refine((type) => type !== undefined, 'Tipo de documento requerido'),
+  
+  documentNumber: z.string()
+    .min(5, 'Número de documento inválido')
+    .max(30, 'Número de documento inválido')
+    .refine(() => {
+      // Validar formato según tipo de documento
+      return true; // La validación específica se hace en la función validateDocumentFormat
+    }, 'Formato de documento inválido')
 });
 
 // ============================================================================
@@ -233,13 +269,15 @@ export const completeDoctorRegistrationSchema = z.object({
   licenseState: professionalInfoSchema.shape.licenseState,
   licenseExpiry: professionalInfoSchema.shape.licenseExpiry,
   yearsOfExperience: professionalInfoSchema.shape.yearsOfExperience,
-  currentHospital: professionalInfoSchema.shape.currentHospital,
-  clinicAffiliations: professionalInfoSchema.shape.clinicAffiliations,
   bio: professionalInfoSchema.shape.bio,
   
   // Especialidad
   specialtyId: specialtySelectionSchema.shape.specialtyId,
   subSpecialties: specialtySelectionSchema.shape.subSpecialties,
+  
+  // Verificación de licencia
+  documentType: licenseVerificationSchema.shape.documentType,
+  documentNumber: licenseVerificationSchema.shape.documentNumber,
   
   // Verificación de identidad
   identityVerification: identityVerificationSchema.shape.identityVerification,
@@ -360,6 +398,25 @@ export function validateWorkingHours(workingHours: WorkingHours): boolean {
   }
   
   return true;
+}
+
+/**
+ * Valida el formato del documento según su tipo
+ */
+export function validateDocumentFormat(documentType: string, documentNumber: string): boolean {
+  switch (documentType) {
+    case 'cedula_identidad':
+      // Formato: V-XXXXXXXX o E-XXXXXXXX
+      return /^[VE]-\d{7,8}$/.test(documentNumber);
+    case 'pasaporte':
+      // Formato: P-XXXXXXXX (letra P seguida de 8 dígitos)
+      return /^P-\d{8}$/.test(documentNumber);
+    case 'matricula':
+      // Formato: MPPS-XXXXX o CMC-XXXXX u otros colegios médicos
+      return /^(MPPS|CMC|CMDM|CMDC|CMDT|CMDZ|CMDA|CMDB|CMDL|CMDF|CMDG|CMDP|CMDS|CMDY|CMDCO|CMDSU|CMDTA|CMDME|CMDMO|CMDVA|CMDAP|CMDGU|CMDPO|CMDNUE|CMDBAR|CMDCAR|CMDARA|CMDBOL|CMDCOJ|CMDDEL|CMDMIRA|CMDTRU|CMDYAR)-\d{4,6}$/i.test(documentNumber);
+    default:
+      return false;
+  }
 }
 
 // ============================================================================
@@ -488,6 +545,7 @@ export type PasswordStrengthResult = ReturnType<typeof validatePasswordStrength>
 export type PersonalInfoValidation = z.infer<typeof personalInfoSchema>;
 export type ProfessionalInfoValidation = z.infer<typeof professionalInfoSchema>;
 export type SpecialtySelectionValidation = z.infer<typeof specialtySelectionSchema>;
+export type LicenseVerificationValidation = z.infer<typeof licenseVerificationSchema>;
 export type IdentityVerificationValidation = z.infer<typeof identityVerificationSchema>;
 export type DashboardConfigurationValidation = z.infer<typeof dashboardConfigurationSchema>;
 export type CompleteDoctorRegistrationValidation = z.infer<typeof completeDoctorRegistrationSchema>;
