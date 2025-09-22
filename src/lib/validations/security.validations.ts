@@ -30,7 +30,16 @@ export type SecurityEventType =
   | 'medical_record_accessed'
   | 'patient_data_viewed'
   | 'prescription_created'
-  | 'lab_result_accessed';
+  | 'lab_result_accessed'
+  | 'didit_session_created'
+  | 'didit_session_status_checked'
+  | 'didit_session_updated'
+  | 'didit_verification_started'
+  | 'didit_verification_completed'
+  | 'didit_verification_failed'
+  | 'didit_webhook_received'
+  | 'doctor_verification_session_created'
+  | 'doctor_verification_status_checked';
 
 /**
  * Niveles de severidad para eventos de seguridad
@@ -111,38 +120,53 @@ export function validateDataSensitivity(data: Partial<Record<string, unknown>>):
     'passport', 'driverLicense', 'driver_license'
   ];
   
-  // Patrones sensibles en el contenido
+  // Patrones sensibles en el contenido (más específicos para evitar falsos positivos)
   const sensitivePatterns = [
     { pattern: /\b\d{3}-\d{2}-\d{4}\b/g, type: 'SSN' },
     { pattern: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, type: 'Credit Card' },
-    { pattern: /\b[JVGE]-\d{8,9}\b/g, type: 'Venezuelan ID' },
+    // Solo detectar cédulas venezolanas en campos específicos, no en todo el objeto
+    { pattern: /\b[JVGE]-\d{8,9}\b/g, type: 'Venezuelan ID', context: ['cedula', 'documentId', 'nationalId'] },
     { pattern: /\b\d{10,12}\b/g, type: 'Bank Account' }
   ];
   
-  const dataString = JSON.stringify(data).toLowerCase();
-  
   // Verificar campos prohibidos
   prohibitedFields.forEach(field => {
-    if (dataString.includes(field.toLowerCase())) {
+    if (Object.keys(data).some(key => key.toLowerCase().includes(field.toLowerCase()))) {
       violations.push(`Campo sensible detectado: ${field}`);
       riskLevel = 'high';
     }
   });
   
-  // Verificar patrones sensibles
-  sensitivePatterns.forEach(({ pattern, type }) => {
-    const matches = dataString.match(pattern);
-    if (matches) {
-      violations.push(`Patrón sensible detectado: ${type} (${matches.length} ocurrencias)`);
-      if (riskLevel === 'low') riskLevel = 'medium';
-    }
-  });
-  
-  // Verificar longitud excesiva que podría contener datos sensibles
+  // Verificar patrones sensibles solo en campos específicos
   Object.entries(data).forEach(([key, value]) => {
-    if (typeof value === 'string' && value.length > 1000) {
-      violations.push(`Campo excesivamente largo detectado: ${key}`);
-      if (riskLevel === 'low') riskLevel = 'medium';
+    if (typeof value === 'string') {
+      sensitivePatterns.forEach(({ pattern, type, context }) => {
+        // Si hay contexto específico, solo verificar en esos campos
+        if (context && !context.some(ctx => key.toLowerCase().includes(ctx))) {
+          return;
+        }
+        
+        const matches = value.match(pattern);
+        if (matches) {
+          // Solo reportar como violación si no es un campo esperado (como cedula en registro médico)
+          if (key.toLowerCase().includes('cedula') || key.toLowerCase().includes('document')) {
+            // Para campos de cédula/documento, solo reportar si hay múltiples patrones sospechosos
+            if (matches.length > 1) {
+              violations.push(`Múltiples patrones de ${type} detectados en ${key}`);
+              if (riskLevel === 'low') riskLevel = 'medium';
+            }
+          } else {
+            violations.push(`Patrón sensible detectado: ${type} en campo ${key}`);
+            if (riskLevel === 'low') riskLevel = 'medium';
+          }
+        }
+      });
+      
+      // Verificar longitud excesiva que podría contener datos sensibles
+      if (value.length > 1000) {
+        violations.push(`Campo excesivamente largo detectado: ${key}`);
+        if (riskLevel === 'low') riskLevel = 'medium';
+      }
     }
   });
   

@@ -155,11 +155,11 @@ export class ProfessionalLicenseValidator {
             isVerified: sacsResult.isVerified,
             doctorName: sacsResult.doctorName,
             specialty: sacsResult.specialty,
-            profession: sacsResult.rawData?.profesion, // Usar profesion del scraping
-            licenseNumber: sacsResult.rawData?.matricula,
-            registrationDate: sacsResult.rawData?.fecha,
-            hasPostgrados: sacsResult.rawData?.postgrados,
-            especialidad: sacsResult.rawData?.especialidad,
+            profession: (sacsResult.rawData as any)?.profesion || 'MÉDICO(A) CIRUJANO(A)', // Usar profesion del scraping
+            licenseNumber: (sacsResult.rawData as any)?.matricula || '',
+            registrationDate: (sacsResult.rawData as any)?.fecha || '',
+            hasPostgrados: (sacsResult.rawData as any)?.postgrados || false,
+            especialidad: (sacsResult.rawData as any)?.especialidad || '',
             rawData: sacsResult.rawData
           };
           
@@ -309,23 +309,32 @@ export class ProfessionalLicenseValidator {
 
       // SOLUCIÓN DEFINITIVA: Usar la función AJAX directa con detección de postgrados
       const cedulaCompleta = licenseData.documentNumber;
-      logger.info('verification', 'Ejecutando consulta AJAX con detección de postgrados para:', cedulaCompleta);
+      logger.info('verification', 'Ejecutando consulta AJAX usando script exacto que funciona para:', { cedula: cedulaCompleta });
 
-      // Ejecutar la consulta completa con detección de postgrados
-      const result = await page.evaluate((cedula) => {
+      // Ejecutar el script exacto que funciona (adaptado del script proporcionado)
+      const result = await page.evaluate((cedulaCompleta) => {
         return new Promise((resolve) => {
-          // Verificar si la función de consulta está disponible
-          if (typeof xajax_getPrfsnalByCed === 'function') {
-            console.log('🚀 Consultando profesional:', cedula);
-            
-            // Ejecutar la función que dispara la consulta AJAX
-            xajax_getPrfsnalByCed(cedula);
+          console.log(`🚀 Consultando profesional: ${cedulaCompleta}`);
+
+          // Timeout de seguridad de 15 segundos
+          const safetyTimeout = setTimeout(() => {
+            console.warn('⏰ Timeout de seguridad alcanzado - resolviendo con datos básicos');
+            resolve({
+              success: false,
+              message: 'Timeout en la consulta - intente nuevamente',
+              data: null
+            });
+          }, 15000);
+
+          if (typeof (window as any).xajax_getPrfsnalByCed === 'function') {
+            (window as any).xajax_getPrfsnalByCed(cedulaCompleta);
 
             // Esperar 7 segundos para que cargue la tabla
             setTimeout(() => {
               const filas = Array.from(document.querySelectorAll('table tr'));
               if (filas.length === 0) {
                 console.warn('⚠️ No se encontraron resultados');
+                clearTimeout(safetyTimeout);
                 resolve({
                   success: false,
                   message: 'No se encontraron resultados en la tabla',
@@ -335,107 +344,131 @@ export class ProfessionalLicenseValidator {
               }
 
               console.log('📄 Datos básicos encontrados:');
+              
+              // Procesar exactamente como en el script original
               const data = {
                 cedula: null,
                 nombre: null,
                 profesion: null,
                 matricula: null,
-                fecha: null,
+                fechaRegistro: null,
                 tomo: null,
                 folio: null,
-                postgrados: false,
-                especialidad: null
+                especialidad: null,
+                licenseStatus: null,
+                isValid: false
               };
 
               filas.forEach((fila, i) => {
                 const celdas = Array.from(fila.querySelectorAll('td, th'));
                 if (celdas.length > 0) {
-                  const cellTexts = celdas.map(c => c.textContent?.trim());
+                  const cellTexts = celdas.map(c => c.textContent.trim());
                   console.log(`Fila ${i}:`, cellTexts);
-                  
-                  // Extraer datos específicos
-                  if (cellTexts.length >= 2) {
-                    const firstCell = cellTexts[0];
-                    const secondCell = cellTexts[1];
+
+                  // Extraer según el patrón exacto del script que funciona
+                  if (cellTexts.length === 2) {
+                    const [firstCell, secondCell] = cellTexts;
                     
                     if (firstCell === 'NÚMERO DE CÉDULA:' && secondCell) {
                       data.cedula = secondCell;
                     } else if (firstCell === 'NOMBRE Y APELLIDO:' && secondCell) {
                       data.nombre = secondCell;
-                    } else if (cellTexts.length >= 6) {
-                      // Fila de datos completos
-                      const [profesion, matricula, fecha, tomo, folio, postgrados] = cellTexts;
-                      if (profesion && profesion.length > 3) {
-                        data.profesion = profesion;
-                        data.matricula = matricula;
-                        data.fecha = fecha;
-                        data.tomo = tomo;
-                        data.folio = folio;
-                        data.postgrados = postgrados === 'Postgrados';
-                      }
                     }
+                  } else if (cellTexts.length === 6) {
+                    // Fila de datos completos como: ['MÉDICO(A) CIRUJANO(A)', 'MPPS-67301', '2005-01-13', '101', '87', 'Postgrados']
+                    const [profesion, matricula, fecha, tomo, folio, postgrados] = cellTexts;
                     
-                    // Buscar profesión en cualquier celda que contenga "MÉDICO" o "CIRUJANO"
-                    cellTexts.forEach(cellText => {
-                      if (cellText && (cellText.includes('MÉDICO') || cellText.includes('CIRUJANO'))) {
-                        if (!data.profesion || data.profesion.length < cellText.length) {
-                          data.profesion = cellText;
-                        }
-                      }
-                    });
+                    if (profesion && (profesion.includes('MÉDICO') || profesion.includes('CIRUJANO'))) {
+                      data.profesion = profesion;
+                      data.matricula = matricula;
+                      data.fechaRegistro = fecha;
+                      data.tomo = tomo;
+                      data.folio = folio;
+                      data.licenseStatus = profesion; // Store profession as license status
+                      data.isValid = true;
+                      
+                      console.log(`✅ Datos médicos extraídos: ${profesion}, Matrícula: ${matricula}`);
+                    }
                   }
                 }
               });
 
-              // Usar XPath para encontrar el botón Postgrado
-              const xpath = "/html/body/main/div/div/div/div/div[2]/div/div[3]/div/div/div[3]/div[2]/table/tbody/tr/td[6]/button";
-              const postgradoBtn = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+              // Verificar si hay botón de postgrado de manera más robusta
+              console.log('🔍 Buscando botón de postgrado...');
+              
+              // Buscar botón que contenga "Postgrado" o "Postgrados"
+              const postgradoBtn = Array.from(document.querySelectorAll('button, input[type="button"], a'))
+                .find(btn => {
+                  const text = btn.textContent?.trim() || '';
+                  return text.toLowerCase().includes('postgrado');
+                });
 
-              if (postgradoBtn && data.postgrados) {
+              // Verificar también si hay una columna que indica postgrados
+              const hasPostgradosColumn = Array.from(document.querySelectorAll('table tr'))
+                .some(row => {
+                  const cells = Array.from(row.querySelectorAll('td, th'));
+                  return cells.some(cell => cell.textContent?.trim() === 'Postgrados');
+                });
+
+              if (postgradoBtn && hasPostgradosColumn) {
                 console.log('🩺 Botón Postgrado encontrado, haciendo clic...');
-                postgradoBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                
+                try {
+                  postgradoBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-                // Esperar 2 segundos para que cargue la especialidad
-                setTimeout(() => {
-                  const especialidad = Array.from(document.querySelectorAll('table tr'))
-                    .map(row => Array.from(row.querySelectorAll('td, th')).map(c => c.textContent.trim()))
-                    .flat()
-                    .find(text => text.toLowerCase().includes('especialista en'));
+                  // Esperar 3 segundos para que cargue la especialidad
+                  setTimeout(() => {
+                    const especialidad = Array.from(document.querySelectorAll('table tr'))
+                      .map(row => Array.from(row.querySelectorAll('td, th')).map(c => c.textContent.trim()))
+                      .flat()
+                      .find(text => text.toLowerCase().includes('especialista en'));
 
-                  if (especialidad) {
-                    console.log(`🎓 Especialidad encontrada: ${especialidad}`);
-                    data.especialidad = especialidad;
-                  } else {
-                    console.warn('⚠️ No se detectó especialidad después de hacer clic en Postgrado');
-                  }
+                    if (especialidad) {
+                      console.log(`🎓 Especialidad encontrada: ${especialidad}`);
+                      data.especialidad = especialidad;
+                    } else {
+                      console.warn('⚠️ No se detectó especialidad después de hacer clic en Postgrado');
+                    }
 
+                    clearTimeout(safetyTimeout);
+                    resolve({
+                      success: true,
+                      message: 'Datos extraídos exitosamente con especialidad',
+                      data: data
+                    });
+                  }, 3000); // Aumentamos a 3 segundos
+                } catch (error) {
+                  console.error('Error al hacer clic en postgrado:', error);
+                  // Si falla el clic, continuar sin especialidad
+                  clearTimeout(safetyTimeout);
                   resolve({
                     success: true,
-                    message: 'Datos extraídos exitosamente con postgrados',
+                    message: 'Datos extraídos exitosamente (error en postgrado)',
                     data: data
                   });
-                }, 2000);
+                }
               } else {
-                console.log('ℹ️ No hay botón Postgrado o no tiene postgrados');
+                console.log('ℹ️ No se encontró botón de postgrado o médico sin postgrados');
                 
-                // Si no hay botón de postgrados pero tenemos especialidad en la profesión, separarla
+                // Verificar si la profesión ya contiene especialidad
                 if (data.profesion && data.profesion.includes('ESPECIALISTA')) {
-                  // La profesión contiene la especialidad, separarla
                   data.especialidad = data.profesion;
-                  // Mantener solo la parte base de la profesión
                   data.profesion = 'MÉDICO(A) CIRUJANO(A)';
-                  console.log(`🎓 Separando especialidad de profesión: ${data.especialidad}`);
+                  console.log(`🎓 Especialidad extraída de profesión: ${data.especialidad}`);
                 }
                 
+                // Resolver inmediatamente para médicos sin postgrado
+                clearTimeout(safetyTimeout);
                 resolve({
                   success: true,
-                  message: 'Datos extraídos exitosamente sin postgrados',
+                  message: 'Datos extraídos exitosamente - médico sin postgrados',
                   data: data
                 });
               }
             }, 7000);
           } else {
             console.error('❌ La función xajax_getPrfsnalByCed no está disponible');
+            clearTimeout(safetyTimeout);
             resolve({
               success: false,
               message: 'Función AJAX no disponible',
@@ -445,11 +478,11 @@ export class ProfessionalLicenseValidator {
         });
       }, cedulaCompleta);
 
-      logger.info('verification', 'Resultado completo:', result);
+      logger.info('verification', 'Resultado completo:', { result });
 
       // Verificar si se encontraron datos válidos
-      if (result.success && result.data) {
-        const data = result.data;
+      if ((result as any).success && (result as any).data) {
+        const data = (result as any).data;
         
         if (data.nombre && data.nombre.length > 5) {
           return {
@@ -457,8 +490,7 @@ export class ProfessionalLicenseValidator {
             isVerified: true,
             verificationSource: 'sacs',
             doctorName: data.nombre,
-            licenseStatus: 'active',
-            profession: data.profesion,
+            licenseStatus: data.profesion || 'MÉDICO(A) CIRUJANO(A)',
             specialty: data.especialidad || null,
             verificationDate: new Date().toISOString(),
             rawData: {
@@ -478,6 +510,7 @@ export class ProfessionalLicenseValidator {
           return {
             isValid: false,
             isVerified: true,
+            verificationSource: 'sacs',
             error: 'Profesional no encontrado en el registro SACS',
             rawData: {
               result,
@@ -489,7 +522,8 @@ export class ProfessionalLicenseValidator {
         return {
           isValid: false,
           isVerified: false,
-          error: result.message || 'No se pudieron extraer datos',
+          verificationSource: 'sacs',
+          error: (result as any).message || 'No se pudieron extraer datos',
           rawData: {
             result,
             extractionMethod: 'ajax_with_postgrados'
@@ -502,6 +536,7 @@ export class ProfessionalLicenseValidator {
       return {
         isValid: false,
         isVerified: false,
+        verificationSource: 'sacs',
         error: error instanceof Error ? error.message : 'Error desconocido'
       };
     } finally {

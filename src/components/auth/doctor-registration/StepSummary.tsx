@@ -10,7 +10,7 @@ import {
   LayoutDashboard 
 } from 'lucide-react';
 import { DoctorRegistrationData, RegistrationStep } from '@/types/medical/specialties';
-import { getSpecialtyById } from '@/lib/medical-specialties';
+import { getSpecialtyById } from '@/lib/medical-specialties/specialty-utils';
 
 interface StepSummaryProps {
   step: RegistrationStep;

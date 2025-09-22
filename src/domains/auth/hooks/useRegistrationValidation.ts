@@ -6,20 +6,14 @@
 
 import { useCallback } from 'react';
 import { DoctorRegistrationData, RegistrationStep } from '@/types/medical/specialties';
-import {
-  personalInfoSchema,
-  professionalInfoSchema,
-  specialtySelectionSchema,
-  licenseVerificationSchema,
-  identityVerificationSchema,
-  dashboardConfigurationSchema,
-  completeDoctorRegistrationSchema,
-  logSecurityEvent,
-  validateDataSensitivity,
-  sanitizeInput,
-  validatePasswordStrength,
-  validateDocumentFormat
-} from '@/lib/validations/doctor-registration';
+import { personalInfoSchema, validatePasswordStrength } from '@/lib/validations/personal-info.validations';
+import { professionalInfoSchema, validateDocumentFormat } from '@/lib/validations/professional-info.validations';
+import { specialtySelectionSchema } from '@/lib/validations/specialty.validations';
+import { licenseVerificationSchema } from '@/lib/validations/license-verification.validations';
+import { identityVerificationSchema } from '@/lib/validations/identity-verification.validations';
+import { dashboardConfigurationSchema } from '@/lib/validations/dashboard-config.validations';
+import { completeDoctorRegistrationSchema } from '@/lib/validations/index';
+import { validateDataSensitivity, sanitizeInput, logSecurityEvent } from '@/lib/validations/security.validations';
 import { useDoctorRegistrationErrors } from '@/hooks/useFormErrors';
 import { logger } from '@/lib/logging/logger';
 import { ZodError } from 'zod';
@@ -78,8 +72,11 @@ export const useRegistrationValidation = () => {
       // Validate data sensitivity
       const sensitivityCheck = validateDataSensitivity(result);
       if (!sensitivityCheck.isValid) {
-        logger.warn('registration', 'Sensitive data detected in personal info', {
-          issues: sensitivityCheck.issues
+        // Log security event instead of warning to avoid console noise
+        logSecurityEvent('sensitive_data_detected', {
+          step: 'personal_info',
+          riskLevel: sensitivityCheck.riskLevel,
+          issueCount: sensitivityCheck.issues?.length || 0
         });
       }
 
@@ -123,11 +120,11 @@ export const useRegistrationValidation = () => {
       formErrors.clearAllErrors();
 
       const validationData = {
-        licenseNumber: data.licenseNumber || '',
+        // licenseNumber eliminado - ahora se obtiene automáticamente de SACS
         yearsOfExperience: data.yearsOfExperience || 0,
         bio: data.bio || '',
         university: data.university || '',
-        graduationYear: data.graduationYear,
+        graduationYear: data.graduationYear || '',
         medicalBoard: data.medicalBoard || '',
         documentType: data.documentType,
         documentNumber: data.documentNumber || ''
@@ -151,9 +148,11 @@ export const useRegistrationValidation = () => {
 
       // Log successful validation
       logSecurityEvent('professional_info_validated', {
-        licenseNumber: result.licenseNumber.replace(/\d/g, 'X'), // Mask for security
+        // licenseNumber eliminado - ya no se requiere en el formulario
         yearsOfExperience: result.yearsOfExperience,
-        university: result.university
+        university: result.university,
+        graduationYear: result.graduationYear?.substring(6) || '', // Solo el año para logging
+        medicalBoard: result.medicalBoard
       });
 
       return { isValid: true };

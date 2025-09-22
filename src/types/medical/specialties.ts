@@ -38,7 +38,7 @@ export type DoctorRegistrationData = {
   
   // Información académica y profesional
   university?: string;
-  graduationYear?: number;
+  graduationYear?: string; // Formato: dd/mm/yyyy
   medicalBoard?: string;
   
   // Verificación de identidad

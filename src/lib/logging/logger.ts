@@ -133,16 +133,35 @@ class Logger {
     
     switch (entry.level) {
       case 'debug':
-        console.debug(logMessage, entry.metadata || '');
+        if (entry.metadata && Object.keys(entry.metadata).length > 0) {
+          console.debug(logMessage, entry.metadata);
+        } else {
+          console.debug(logMessage);
+        }
         break;
       case 'info':
-        console.info(logMessage, entry.metadata || '');
+        if (entry.metadata && Object.keys(entry.metadata).length > 0) {
+          console.info(logMessage, entry.metadata);
+        } else {
+          console.info(logMessage);
+        }
         break;
       case 'warn':
-        console.warn(logMessage, entry.metadata || '');
+        if (entry.metadata && Object.keys(entry.metadata).length > 0) {
+          console.warn(logMessage, entry.metadata);
+        } else {
+          console.warn(logMessage);
+        }
         break;
       case 'error':
-        console.error(logMessage, entry.metadata || '');
+        if (entry.metadata && 
+            typeof entry.metadata === 'object' && 
+            entry.metadata !== null &&
+            Object.keys(entry.metadata).length > 0) {
+          console.error(logMessage, entry.metadata);
+        } else {
+          console.error(logMessage);
+        }
         break;
     }
   }

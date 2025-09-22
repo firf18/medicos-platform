@@ -17,10 +17,10 @@ import {
   sanitizeInput,
   validatePasswordStrength,
   validateDocumentFormat
-} from '@/lib/validations/doctor-registration';
+} from '@/lib/validations';
 import { DoctorRegistrationData, RegistrationStep } from '@/types/medical/specialties';
 import { logger } from '@/lib/logging/logger';
-import { logSecurityEvent } from '@/lib/validations/doctor-registration';
+import { logSecurityEvent } from '@/lib/validations';
 
 export interface ValidationResult {
   isValid: boolean;

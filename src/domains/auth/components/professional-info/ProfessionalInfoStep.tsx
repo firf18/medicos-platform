@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { DoctorRegistrationData } from '@/types/medical/specialties';
-import { ProfessionalInfoStepProps } from '../types/professional-info.types';
+import { ProfessionalInfoStepProps } from '../../types/professional-info.types';
 import { useProfessionalInfoForm } from '../../hooks/useProfessionalInfoForm';
 import { DocumentInfoSection } from './DocumentInfoSection';
 import { AcademicInfoSection } from './AcademicInfoSection';
@@ -87,32 +87,6 @@ export const ProfessionalInfoStep: React.FC<ProfessionalInfoStepProps> = ({
         </p>
       </div>
 
-      {/* Verification Status Alert */}
-      {verificationResult && (
-        <Alert 
-          variant={
-            verificationResult.isValid && verificationResult.isVerified 
-              ? 'default' 
-              : 'destructive'
-          }
-          className={
-            verificationResult.isValid && verificationResult.isVerified
-              ? 'border-green-200 bg-green-50'
-              : ''
-          }
-        >
-          {getVerificationStatusIcon()}
-          <AlertDescription>
-            <strong>
-              {verificationResult.isValid && verificationResult.isVerified
-                ? 'Verificación Exitosa:'
-                : 'Error de Verificación:'
-              }
-            </strong>{' '}
-            {getVerificationMessage()}
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Document Information Section */}
       <DocumentInfoSection
@@ -126,6 +100,7 @@ export const ProfessionalInfoStep: React.FC<ProfessionalInfoStepProps> = ({
           message: getVerificationMessage() || undefined,
           severity: verificationResult?.isValid ? 'success' : 'error'
         }}
+        verificationResult={verificationResult}
       />
 
       {/* Academic Information Section */}
@@ -142,35 +117,6 @@ export const ProfessionalInfoStep: React.FC<ProfessionalInfoStepProps> = ({
         onFieldChange={handleInputChange}
       />
 
-      {/* Verification Analysis */}
-      {verificationResult?.analysis && (
-        <Alert className="border-blue-200 bg-blue-50">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription>
-            <div className="space-y-2">
-              <p><strong>Análisis de Verificación:</strong></p>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>
-                  <strong>Especialidad:</strong> {verificationResult.analysis.specialty}
-                </li>
-                <li>
-                  <strong>Dashboard Principal:</strong> {verificationResult.analysis.dashboardAccess.primaryDashboard}
-                </li>
-                {verificationResult.analysis.recommendations.length > 0 && (
-                  <li>
-                    <strong>Recomendaciones:</strong>
-                    <ul className="list-disc list-inside ml-4 mt-1">
-                      {verificationResult.analysis.recommendations.map((rec, index) => (
-                        <li key={index}>{rec}</li>
-                      ))}
-                    </ul>
-                  </li>
-                )}
-              </ul>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Form Validation Errors */}
       {Object.keys(errors).length > 0 && (
@@ -186,42 +132,6 @@ export const ProfessionalInfoStep: React.FC<ProfessionalInfoStepProps> = ({
           </AlertDescription>
         </Alert>
       )}
-
-      {/* Navigation Buttons */}
-      <div className="flex justify-between pt-6">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onPrevious}
-          disabled={isLoading || isVerifying}
-        >
-          Anterior
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit || isLoading || isVerifying}
-          className="min-w-32"
-        >
-          {isLoading || isVerifying ? (
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              {isVerifying ? 'Verificando...' : 'Guardando...'}
-            </div>
-          ) : (
-            'Continuar'
-          )}
-        </Button>
-      </div>
-
-      {/* Help Text */}
-      <div className="text-center text-sm text-gray-500 pt-4">
-        <p>
-          Su información será verificada automáticamente con los registros oficiales.
-          <br />
-          Todos los datos están protegidos y cifrados según estándares médicos.
-        </p>
-      </div>
     </div>
   );
 };

@@ -7,7 +7,7 @@
 
 import { DoctorRegistrationData } from '@/types/medical/specialties';
 import { logger } from '@/lib/logging/logger';
-import { logSecurityEvent } from '@/lib/validations/doctor-registration';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
 
 export interface ApiResponse<T = any> {
   success: boolean;

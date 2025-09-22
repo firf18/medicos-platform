@@ -1,0 +1,56 @@
+# ============================================================================
+# PLATFORM MÉDICOS - VARIABLES DE ENTORNO DE PRODUCCIÓN
+# ============================================================================
+# 
+# Configuración para producción con datos reales de Didit
+# IMPORTANTE: No committear este archivo al repositorio
+
+# ============================================================================
+# SUPABASE CONFIGURATION (REQUIRED)
+# ============================================================================
+NEXT_PUBLIC_SUPABASE_URL=https://zonmvugejshdstymfdva.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvbm12dWdlanNoZHN0eW1mZHZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYzNzQ2OTQsImV4cCI6MjA1MTk1MDY5NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8E
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvbm12dWdlanNoZHN0eW1mZHZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNjM3NDY5NCwiZXhwIjoyMDUxOTUwNjk0fQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8E
+
+# ============================================================================
+# DIDIT CONFIGURATION (REQUIRED FOR PRODUCTION)
+# ============================================================================
+# Obtener estos valores de: https://business.didit.me
+DIDIT_API_KEY=your_didit_api_key_here
+DIDIT_WEBHOOK_SECRET_KEY=your_didit_webhook_secret_key_here
+DIDIT_WEBHOOK_URL=https://your-domain.com/api/didit/webhook
+DIDIT_CALLBACK_URL=https://your-domain.com/api/auth/didit/callback
+
+# ============================================================================
+# APPLICATION CONFIGURATION
+# ============================================================================
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
+NODE_ENV=production
+
+# ============================================================================
+# SECURITY CONFIGURATION
+# ============================================================================
+# Generar con: openssl rand -base64 32
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=https://your-domain.com
+
+# ============================================================================
+# MEDICAL COMPLIANCE
+# ============================================================================
+HIPAA_COMPLIANCE_MODE=true
+MEDICAL_AUDIT_ENDPOINT=https://audit.your-domain.com
+ENCRYPTION_KEY=your_encryption_key_here
+
+# ============================================================================
+# RATE LIMITING & SECURITY
+# ============================================================================
+RATE_LIMIT_ENABLED=true
+SESSION_TIMEOUT_MINUTES=30
+MAX_LOGIN_ATTEMPTS=3
+
+# ============================================================================
+# DEVELOPMENT OVERRIDES (Remove in production)
+# ============================================================================
+# Uncomment for development
+# NODE_ENV=development
+# NEXT_PUBLIC_SITE_URL=http://localhost:3000

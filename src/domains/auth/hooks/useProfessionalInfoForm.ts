@@ -10,7 +10,8 @@ import {
   ProfessionalInfoFormData,
   ProfessionalInfoFormErrors,
   LicenseVerificationResult,
-  VerificationStatus
+  VerificationStatus,
+  DocumentType
 } from '../types/professional-info.types';
 import {
   validateProfessionalInfoForm,
@@ -35,11 +36,14 @@ export const useProfessionalInfoForm = ({
   const [formData, setFormData] = useState<ProfessionalInfoFormData>({
     yearsOfExperience: initialData.yearsOfExperience || 0,
     bio: initialData.bio || '',
-    licenseNumber: initialData.licenseNumber || '',
     documentType: initialData.documentType || 'cedula_identidad',
     documentNumber: initialData.documentNumber || '',
     university: initialData.university || '',
-    graduationYear: initialData.graduationYear || undefined,
+    graduationYear: typeof initialData.graduationYear === 'string' 
+      ? initialData.graduationYear 
+      : initialData.graduationYear 
+        ? `${initialData.graduationYear}` 
+        : '',
     medicalBoard: initialData.medicalBoard || ''
   });
 
@@ -62,36 +66,151 @@ export const useProfessionalInfoForm = ({
     setFormData(prev => {
       const newData = { ...prev };
 
-      // Special handling for document number formatting
-      if (field === 'documentNumber' && typeof value === 'string') {
+      // Special handling when document type changes - clear document number
+      if (field === 'documentType') {
+        newData.documentType = value as DocumentType;
+        newData.documentNumber = ''; // Clear document number when type changes
+      } else if (field === 'documentNumber' && typeof value === 'string') {
         newData[field] = processDocumentNumber(value, prev.documentType);
+      } else if (field === 'yearsOfExperience') {
+        newData[field] = value as number;
+      } else if (field === 'graduationYear') {
+        newData[field] = value as string;
       } else {
-        newData[field] = value as any;
+        (newData as any)[field] = value;
       }
-
-      // Clear field-specific errors
-      if (errors[field]) {
-        setErrors(prevErrors => {
-          const { [field]: removed, ...rest } = prevErrors;
-          return rest;
-        });
-      }
-
-      // Update parent data
-      onDataChange({
-        [field]: newData[field]
-      });
 
       return newData;
     });
-  }, [errors, onDataChange]);
+
+    // Clear field-specific errors (separate from setState)
+    if (errors[field]) {
+      setErrors(prevErrors => {
+        const { [field]: removed, ...rest } = prevErrors;
+        return rest;
+      });
+    }
+
+    // Clear verification when document type or number changes
+    if (field === 'documentType' || field === 'documentNumber') {
+      setVerificationStatus('idle');
+      setVerificationResult(null);
+    }
+
+    // Update parent data (separate from setState)
+    let processedValue = value;
+    if (field === 'documentNumber' && typeof value === 'string') {
+      processedValue = processDocumentNumber(value, formData.documentType);
+    }
+    
+    // When document type changes, also clear document number in parent
+    if (field === 'documentType') {
+      onDataChange({
+        documentType: processedValue as DocumentType,
+        documentNumber: '' // Clear in parent too
+      });
+    } else {
+      onDataChange({
+        [field]: processedValue
+      });
+    }
+  }, [errors, onDataChange, formData.documentType]);
+
+  /**
+   * Compare names for verification
+   */
+  const compareNames = useCallback((providedName: string, officialName: string) => {
+    // Normalize names for comparison
+    const normalize = (name: string) => 
+      name.toLowerCase()
+        .trim()
+        .replace(/[áàäâ]/g, 'a')
+        .replace(/[éèëê]/g, 'e')
+        .replace(/[íìïî]/g, 'i')
+        .replace(/[óòöô]/g, 'o')
+        .replace(/[úùüû]/g, 'u')
+        .replace(/ñ/g, 'n')
+        .replace(/\s+/g, ' ');
+
+    const normalizedProvided = normalize(providedName);
+    const normalizedOfficial = normalize(officialName);
+
+    // Split into words to compare individual names
+    const providedWords = normalizedProvided.split(' ').filter(word => word.length > 2);
+    const officialWords = normalizedOfficial.split(' ').filter(word => word.length > 2);
+
+    // Calculate match percentage
+    let matches = 0;
+    providedWords.forEach(providedWord => {
+      if (officialWords.some(officialWord => 
+        officialWord.includes(providedWord) || providedWord.includes(officialWord)
+      )) {
+        matches++;
+      }
+    });
+
+    const confidence = matches / Math.max(providedWords.length, 1);
+    const isMatch = confidence >= 0.6; // 60% threshold
+
+    return {
+      matches: isMatch,
+      confidence,
+      message: isMatch 
+        ? 'Los nombres coinciden correctamente'
+        : `Los nombres no coinciden. Oficial: ${officialName}. Verifique y corrija los nombres en el paso anterior.`
+    };
+  }, []);
+
+  /**
+   * Assign dashboard based on specialty
+   */
+  const assignDashboard = useCallback((specialty?: string, profession?: string) => {
+    if (!specialty && !profession) {
+      return {
+        primaryDashboard: 'medicina-general',
+        allowedDashboards: ['medicina-general'],
+        reason: 'Dashboard por defecto - información incompleta',
+        requiresApproval: false
+      };
+    }
+
+    // Map specialties to dashboards
+    const specialtyMap: Record<string, string> = {
+      'MEDICINA INTERNA': 'medicina-interna',
+      'CARDIOLOGIA': 'cardiologia',
+      'PEDIATRIA': 'pediatria',
+      'GINECOLOGIA': 'ginecologia',
+      'DERMATOLOGIA': 'dermatologia',
+      'NEUROLOGIA': 'neurologia',
+      'PSIQUIATRIA': 'psiquiatria',
+      'CIRUGIA': 'cirugia',
+      'TRAUMATOLOGIA': 'traumatologia',
+      'OFTALMOLOGIA': 'oftalmologia',
+      'RADIOLOGIA': 'radiologia'
+    };
+
+    const specialtyKey = specialty?.toUpperCase() || '';
+    const dashboardKey = Object.keys(specialtyMap).find(key => 
+      specialtyKey.includes(key)
+    );
+
+    const primaryDashboard = dashboardKey ? specialtyMap[dashboardKey] : 'medicina-general';
+    
+    return {
+      primaryDashboard,
+      allowedDashboards: [primaryDashboard, 'medicina-general'], // Always include general
+      reason: dashboardKey 
+        ? `Dashboard asignado automáticamente por especialidad: ${specialty}`
+        : 'Dashboard general - especialidad no reconocida',
+      requiresApproval: false
+    };
+  }, []);
 
   /**
    * Trigger automatic license verification
    */
   const triggerLicenseVerification = useCallback(async (
     documentNumber: string,
-    licenseNumber: string,
     fullName?: string
   ) => {
     // Clear existing timeout
@@ -100,13 +219,13 @@ export const useProfessionalInfoForm = ({
     }
 
     // Check if we need to verify
-    const verificationKey = `${documentNumber}-${licenseNumber}`;
+    const verificationKey = `${documentNumber}`;
     if (verificationKey === lastVerificationRef.current) {
       return; // Already verified this combination
     }
 
     // Basic validation before API call
-    if (!documentNumber.trim() || !licenseNumber.trim()) {
+    if (!documentNumber.trim()) {
       return;
     }
 
@@ -117,9 +236,27 @@ export const useProfessionalInfoForm = ({
     try {
       const result = await verifyMedicalLicense(
         documentNumber,
-        licenseNumber,
         fullName
       );
+
+      // Perform name comparison if we have both names
+      if (result.isValid && result.doctorName && fullName) {
+        const nameComparison = compareNames(fullName, result.doctorName);
+        (result as any).nameMatch = nameComparison;
+        
+        // Assign dashboard based on specialty
+        const dashboardAccess = assignDashboard(result.specialty, result.profession);
+        
+        // Update analysis with our computed values
+        result.analysis = {
+          ...result.analysis,
+          isValidMedicalProfessional: result.isValid,
+          specialty: result.specialty || 'Medicina General',
+          dashboardAccess,
+          nameVerification: nameComparison,
+          recommendations: []
+        };
+      }
 
       setVerificationResult(result);
       setVerificationStatus(result.isValid ? 'verified' : 'failed');
@@ -127,11 +264,7 @@ export const useProfessionalInfoForm = ({
 
       // Update parent data with verification results
       if (result.isValid && result.analysis) {
-        onDataChange({
-          specialty: result.analysis.specialty,
-          dashboardAccess: result.analysis.dashboardAccess,
-          verificationResult: result
-        });
+        // Verificación completada - resultado se maneja localmente en este hook
       }
 
     } catch (error) {
@@ -146,11 +279,10 @@ export const useProfessionalInfoForm = ({
   }, [onDataChange]);
 
   /**
-   * Debounced license verification
+   * Debounced license verification with immediate SACS query
    */
   const debouncedVerification = useCallback((
     documentNumber: string,
-    licenseNumber: string,
     fullName?: string
   ) => {
     if (verificationTimeoutRef.current) {
@@ -158,8 +290,11 @@ export const useProfessionalInfoForm = ({
     }
 
     verificationTimeoutRef.current = setTimeout(() => {
-      triggerLicenseVerification(documentNumber, licenseNumber, fullName);
-    }, 1500); // 1.5 second delay
+      // Only trigger if document number is complete and valid format
+      if (documentNumber.length >= 9 && (documentNumber.startsWith('V-') || documentNumber.startsWith('E-'))) {
+        triggerLicenseVerification(documentNumber, fullName);
+      }
+    }, 2000); // 2 second delay for SACS queries
   }, [triggerLicenseVerification]);
 
   /**
@@ -216,13 +351,13 @@ export const useProfessionalInfoForm = ({
 
   // Auto-trigger verification when document and license are available
   useEffect(() => {
-    const { documentNumber, licenseNumber } = formData;
+    const { documentNumber } = formData;
     const fullName = `${initialData.firstName || ''} ${initialData.lastName || ''}`.trim();
     
-    if (documentNumber && licenseNumber && fullName) {
-      debouncedVerification(documentNumber, licenseNumber, fullName);
+    if (documentNumber && fullName) {
+      debouncedVerification(documentNumber, fullName);
     }
-  }, [formData.documentNumber, formData.licenseNumber, initialData.firstName, initialData.lastName, debouncedVerification]);
+  }, [formData.documentNumber, initialData.firstName, initialData.lastName, debouncedVerification]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -253,6 +388,32 @@ export const useProfessionalInfoForm = ({
     
     // Computed values
     isFormValid: Object.keys(errors).length === 0,
-    canSubmit: Object.keys(errors).length === 0 && verificationStatus !== 'verifying'
+    canSubmit: (() => {
+      const hasNoErrors = Object.keys(errors).length === 0;
+      const isNotVerifying = verificationStatus !== 'verifying';
+      const hasBasicData = formData.university && formData.graduationYear && formData.medicalBoard && 
+                          formData.bio && formData.bio.length >= 50 && formData.documentNumber;
+      
+      // Debug logging
+      console.log('[PROFESSIONAL_INFO_DEBUG]', {
+        hasNoErrors,
+        errorsCount: Object.keys(errors).length,
+        errors: errors,
+        verificationStatus,
+        isNotVerifying,
+        hasBasicData,
+        formData: {
+          university: !!formData.university,
+          graduationYear: !!formData.graduationYear,
+          medicalBoard: !!formData.medicalBoard,
+          bio: formData.bio.length,
+          documentNumber: !!formData.documentNumber
+        },
+        finalCanSubmit: hasNoErrors && isNotVerifying && hasBasicData
+      });
+      
+      // Permitir avanzar si no hay errores, no está verificando y tiene datos básicos
+      return hasNoErrors && isNotVerifying && hasBasicData;
+    })()
   };
 };

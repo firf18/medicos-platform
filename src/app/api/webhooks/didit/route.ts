@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { getDiditInstance, DiditWebhook, extractVerificationSummary } from '@/lib/didit-integration';
+import { getDiditConfig, DiditWebhook, processVerificationDecision } from '@/lib/didit-integration';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================================
@@ -139,7 +139,7 @@ async function applyVerificationUpdate(sessionId: string, webhookData: DiditWebh
 async function notifyDoctorOfResult(
   doctorData: { id: string; user_id: string; first_name: string; last_name: string; verification_session_id: string | null },
   status: string,
-  verificationSummary: ReturnType<typeof extractVerificationSummary>
+  verificationSummary: any // Simplified type for now
 ) {
   const admin = createAdminClient();
   
@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar firma del webhook usando la integración de Didit
-    const didit = getDiditInstance();
+    const config = getDiditConfig();
     if (!didit.verifyWebhookSignature(rawBody, signature, timestamp)) {
       logEntry.error = 'Firma de webhook inválida o timestamp expirado';
       logWebhookEvent(createWebhookLog('webhook_signature_failed', logEntry, request));
@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
 
     // Notificar al médico si hay decisión y registro enlazado
     if (webhookData.decision && doctorRegistration) {
-      const verificationSummary = extractVerificationSummary(webhookData.decision);
+      const verificationSummary = processVerificationDecision(webhookData.decision);
       await notifyDoctorOfResult(doctorRegistration, webhookData.status, verificationSummary);
     }
 
@@ -354,7 +354,7 @@ export async function GET(request: NextRequest) {
   
   try {
     // Health check de la integración Didit
-    const didit = getDiditInstance();
+    const config = getDiditConfig();
     const healthCheck = await didit.healthCheck();
     
     const response = {

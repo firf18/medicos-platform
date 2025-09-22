@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +26,9 @@ import {
   getSpecialtiesByCategory,
   type MedicalSpecialty,
   type SpecialtyCategory 
-} from '@/lib/medical-specialties';
+} from '@/lib/medical-specialties/specialties-data';
 import { DoctorRegistrationData } from '@/types/medical/specialties';
+import DatabaseConnectedSpecialtySelection, { SpecialtyNavigationRef } from './specialty/DatabaseConnectedSpecialtySelection';
 
 // Mapeo de iconos
 const ICON_MAP: Record<string, any> = {
@@ -72,9 +73,8 @@ export default function SpecialtySelectionStep({
 }: SpecialtySelectionStepProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<SpecialtyCategory | 'all'>('all');
-  const [selectedSpecialty, setSelectedSpecialty] = useState<MedicalSpecialty | null>(
-    data.specialtyId ? MEDICAL_SPECIALTIES.find(s => s.id === data.specialtyId) || null : null
-  );
+  const [selectedSpecialty, setSelectedSpecialty] = useState<any>(null);
+  const specialtyNavigationRef = useRef<SpecialtyNavigationRef>(null);
 
   // Filtrar especialidades por búsqueda y categoría
   const filteredSpecialties = MEDICAL_SPECIALTIES.filter(specialty => {
@@ -96,18 +96,20 @@ export default function SpecialtySelectionStep({
   ];
 
   // Manejar selección de especialidad
-  const handleSpecialtySelect = (specialty: MedicalSpecialty) => {
+  const handleSpecialtySelect = (specialty: any) => {
     setSelectedSpecialty(specialty);
     updateData({ 
       specialtyId: specialty.id,
-      selectedFeatures: specialty.dashboardFeatures.map(f => f.id)
+      selectedFeatures: []
     });
   };
 
   // Función para validar el formulario
-  const validateForm = useCallback(() => {
+  const validateForm = useCallback((showError = true) => {
     if (!selectedSpecialty) {
-      onStepError('specialty_selection', 'Debes seleccionar una especialidad médica');
+      if (showError) {
+        onStepError('specialty_selection', 'Debes seleccionar una especialidad médica');
+      }
       return false;
     }
     return true;
@@ -121,14 +123,14 @@ export default function SpecialtySelectionStep({
       if (selectedSpecialty) {
         updateData({ 
           specialtyId: selectedSpecialty.id,
-          selectedFeatures: selectedSpecialty.dashboardFeatures.map(f => f.id)
+          selectedFeatures: []
         });
       }
       
       // Marcar paso como completado
       onStepComplete('specialty_selection');
       
-      // Llamar función de navegación si está disponible
+      // Llamar función de navegación para avanzar al siguiente paso
       if (onNext) {
         onNext();
       }
@@ -141,7 +143,7 @@ export default function SpecialtySelectionStep({
     if (selectedSpecialty) {
       updateData({ 
         specialtyId: selectedSpecialty.id,
-        selectedFeatures: selectedSpecialty.dashboardFeatures.map(f => f.id)
+        selectedFeatures: []
       });
     }
     
@@ -167,183 +169,15 @@ export default function SpecialtySelectionStep({
   }, [handleManualNext, handleManualPrevious, validateForm]);
 
   // Efecto para validar cuando cambian los datos (solo para mostrar errores)
-  useEffect(() => {
-    // Solo validar si hay datos y no estamos en estado de carga
-    if (isLoading) return;
-    
-    // Solo validar para mostrar errores, NO llamar onStepComplete automáticamente
-    validateForm();
-  }, [selectedSpecialty, isLoading, validateForm]);
+  // Eliminado useEffect que validaba automáticamente
+  // La validación se ejecutará solo cuando sea necesario (al intentar avanzar)
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Selecciona tu Especialidad Médica
-        </h2>
-        <p className="text-gray-600">
-          Elige la especialidad que mejor describa tu práctica médica. Esto personalizará tu dashboard 
-          con las herramientas específicas que necesitas.
-        </p>
-      </div>
-
-      {/* Barra de búsqueda y filtros */}
-      <div className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Buscar especialidad médica..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Filtros de categoría */}
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Button
-              key={category.value}
-              variant={selectedCategory === category.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category.value)}
-            >
-              {category.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Lista de especialidades */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredSpecialties.map((specialty) => {
-          const IconComponent = ICON_MAP[specialty.icon] || Stethoscope;
-          const colorClasses = COLOR_MAP[specialty.color] || COLOR_MAP.blue;
-          const isSelected = selectedSpecialty?.id === specialty.id;
-
-          return (
-            <Card
-              key={specialty.id}
-              className={`
-                cursor-pointer transition-all duration-200 hover:shadow-lg
-                ${isSelected 
-                  ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50' 
-                  : `border-2 ${colorClasses}`
-                }
-              `}
-              onClick={() => handleSpecialtySelect(specialty)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className={`p-2 rounded-lg ${isSelected ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                    <IconComponent className={`h-6 w-6 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
-                  </div>
-                  {isSelected && (
-                    <CheckCircle className="h-5 w-5 text-blue-600" />
-                  )}
-                </div>
-                <CardTitle className="text-lg">{specialty.name}</CardTitle>
-                <CardDescription className="text-sm">
-                  {specialty.description}
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {/* Badges de información */}
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="secondary" className="text-xs">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {specialty.complexity === 'basic' ? 'Básico' : 
-                       specialty.complexity === 'intermediate' ? 'Intermedio' : 'Avanzado'}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      <Users className="h-3 w-3 mr-1" />
-                      {specialty.estimatedPatients === 'low' ? 'Pocos pacientes' : 
-                       specialty.estimatedPatients === 'medium' ? 'Volumen medio' : 'Alto volumen'}
-                    </Badge>
-                  </div>
-
-                  {/* Características principales */}
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-gray-700">Características principales:</p>
-                    <div className="space-y-1">
-                      {specialty.dashboardFeatures.slice(0, 3).map((feature) => (
-                        <div key={feature.id} className="flex items-center text-xs text-gray-600">
-                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-2"></div>
-                          {feature.name}
-                        </div>
-                      ))}
-                      {specialty.dashboardFeatures.length > 3 && (
-                        <div className="text-xs text-gray-500">
-                          +{specialty.dashboardFeatures.length - 3} características más
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Información de la especialidad seleccionada */}
-      {selectedSpecialty && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="text-green-800 flex items-center">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              Especialidad Seleccionada: {selectedSpecialty.name}
-            </CardTitle>
-            <CardDescription className="text-green-700">
-              Tu dashboard será configurado con {selectedSpecialty.dashboardFeatures.length} características 
-              especializadas para {selectedSpecialty.name.toLowerCase()}.
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-medium text-green-800 mb-2">Características incluidas:</h4>
-                <div className="space-y-1">
-                  {selectedSpecialty.dashboardFeatures.filter(f => f.priority === 'essential').map((feature) => (
-                    <div key={feature.id} className="flex items-center text-sm text-green-700">
-                      <Star className="h-3 w-3 mr-2 text-yellow-500" />
-                      {feature.name}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-green-800 mb-2">Validaciones requeridas:</h4>
-                <div className="space-y-1">
-                  {selectedSpecialty.requiredValidations.map((validation) => (
-                    <div key={validation.id} className="flex items-center text-sm text-green-700">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      {validation.name}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Mensaje si no hay resultados */}
-      {filteredSpecialties.length === 0 && (
-        <div className="text-center py-12">
-          <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No se encontraron especialidades
-          </h3>
-          <p className="text-gray-600">
-            Intenta con otros términos de búsqueda o selecciona una categoría diferente.
-          </p>
-        </div>
-      )}
-    </div>
+    <DatabaseConnectedSpecialtySelection
+      ref={specialtyNavigationRef}
+      selectedSpecialty={selectedSpecialty}
+      onSpecialtySelect={handleSpecialtySelect}
+      isLoading={isLoading}
+    />
   );
 }

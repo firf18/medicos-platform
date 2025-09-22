@@ -11,9 +11,15 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { DependencyAnalyzer, DependencyConfig } from '../DependencyAnalyzer';
+// import { DependencyAnalyzer, DependencyConfig } from '../DependencyAnalyzer'; // Temporarily disabled
 
 async function runDependencyAnalysisExample() {
+  console.log('🔍 Dependency Analysis Example - DISABLED (DependencyAnalyzer removed)\n');
+  console.log('This example is temporarily disabled because DependencyAnalyzer was removed due to corruption.');
+  console.log('The DependencyAnalyzer can be recreated if needed.\n');
+  return;
+  
+  /* DISABLED CODE - DependencyAnalyzer removed
   console.log('🔍 Dependency Analysis Example\n');
 
   // Configure the analyzer
@@ -303,6 +309,9 @@ export const useCounter = (initialValue = 0) => {
   }
 
   console.log('📁 Sample project structure created');
+}
+
+  */ // End of disabled code
 }
 
 // Run the example

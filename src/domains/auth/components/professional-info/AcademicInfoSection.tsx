@@ -6,22 +6,19 @@
 
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { GraduationCap, AlertCircle, Search, Building } from 'lucide-react';
+import { GraduationCap, AlertCircle, Calendar } from 'lucide-react';
 import {
   ProfessionalInfoFormData,
   ProfessionalInfoFormErrors
 } from '../../types/professional-info.types';
 import { 
   VENEZUELAN_UNIVERSITIES, 
-  MEDICAL_COLLEGES,
-  getUniversitySuggestions 
+  MEDICAL_COLLEGES
 } from '../../constants/medical-institutions';
 
 interface AcademicInfoSectionProps {
@@ -35,34 +32,32 @@ export const AcademicInfoSection: React.FC<AcademicInfoSectionProps> = ({
   errors,
   onFieldChange
 }) => {
-  const [showUniversityList, setShowUniversityList] = useState(false);
-  const [showMedicalBoardList, setShowMedicalBoardList] = useState(false);
-  const [universitySuggestions, setUniversitySuggestions] = useState<string[]>([]);
-
-  const handleUniversitySearch = (query: string) => {
-    onFieldChange('university', query);
-    const suggestions = getUniversitySuggestions(query);
-    setUniversitySuggestions(suggestions);
-    setShowUniversityList(suggestions.length > 0);
+  
+  // Manejar el formato de fecha dd/mm/yyyy
+  const handleDateChange = (value: string) => {
+    // Solo permitir números y /
+    const formatted = value
+      .replace(/[^\d/]/g, '') // Solo números y /
+      .replace(/^(\d{2})(\d)/, '$1/$2') // Agregar / después del día
+      .replace(/^(\d{2}\/\d{2})(\d)/, '$1/$2') // Agregar / después del mes
+      .substring(0, 10); // Máximo 10 caracteres
+    
+    onFieldChange('graduationYear', formatted);
   };
 
-  const selectUniversity = (university: string) => {
-    onFieldChange('university', university);
-    setShowUniversityList(false);
-    setUniversitySuggestions([]);
+  const validateDateFormat = (dateStr: string): boolean => {
+    const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (!regex.test(dateStr)) return false;
+    
+    const [, day, month, year] = dateStr.match(regex)!;
+    const dayNum = parseInt(day);
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+    
+    return dayNum >= 1 && dayNum <= 31 && 
+           monthNum >= 1 && monthNum <= 12 && 
+           yearNum >= 1950 && yearNum <= new Date().getFullYear();
   };
-
-  const selectMedicalBoard = (board: string) => {
-    onFieldChange('medicalBoard', board);
-    setShowMedicalBoardList(false);
-  };
-
-  // Generate graduation year options (last 50 years)
-  const currentYear = new Date().getFullYear();
-  const graduationYearOptions = Array.from(
-    { length: 50 }, 
-    (_, i) => currentYear - i
-  );
 
   return (
     <Card>
@@ -76,148 +71,96 @@ export const AcademicInfoSection: React.FC<AcademicInfoSectionProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* University */}
-        <div className="space-y-2">
+        {/* Layout compacto: Universidad y Fecha lado a lado */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Universidad - 2/3 del espacio */}
+          <div className="md:col-span-2 space-y-2">
           <Label htmlFor="university">
-            Universidad de Medicina <span className="text-red-500">*</span>
-          </Label>
-          <div className="relative">
-            <div className="flex gap-2">
-              <Input
-                id="university"
-                type="text"
-                value={formData.university}
-                onChange={(e) => handleUniversitySearch(e.target.value)}
-                placeholder="Escriba el nombre de su universidad"
-                className={errors.university ? 'border-red-500' : ''}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowUniversityList(!showUniversityList)}
-                className="flex-shrink-0"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {/* University suggestions dropdown */}
-            {(showUniversityList || universitySuggestions.length > 0) && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                {universitySuggestions.length > 0 ? (
-                  universitySuggestions.map((university, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                      onClick={() => selectUniversity(university)}
-                    >
-                      {university}
-                    </button>
-                  ))
-                ) : (
-                  VENEZUELAN_UNIVERSITIES.map((university, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                      onClick={() => selectUniversity(university)}
-                    >
-                      {university}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          {errors.university && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{errors.university}</AlertDescription>
-            </Alert>
-          )}
-          <p className="text-sm text-muted-foreground">
-            Seleccione o escriba el nombre de la universidad donde estudió medicina
-          </p>
-        </div>
-
-        {/* Graduation Year */}
-        <div className="space-y-2">
-          <Label htmlFor="graduationYear">
-            Año de Graduación <span className="text-red-500">*</span>
+              Universidad de Medicina <span className="text-red-500">*</span>
           </Label>
           <Select
-            value={formData.graduationYear?.toString() || ''}
-            onValueChange={(value) => onFieldChange('graduationYear', parseInt(value))}
+              value={formData.university}
+              onValueChange={(value) => onFieldChange('university', value)}
           >
-            <SelectTrigger className={errors.graduationYear ? 'border-red-500' : ''}>
-              <SelectValue placeholder="Seleccione el año de graduación" />
+              <SelectTrigger className={errors.university ? 'border-red-500' : ''}>
+                <SelectValue placeholder="Seleccione su universidad" />
             </SelectTrigger>
-            <SelectContent>
-              {graduationYearOptions.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
+              <SelectContent className="max-h-60">
+                {VENEZUELAN_UNIVERSITIES.map((university) => (
+                  <SelectItem key={university} value={university}>
+                    {university}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {errors.graduationYear && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{errors.graduationYear}</AlertDescription>
-            </Alert>
+            {errors.university && (
+              <p className="text-sm text-red-500">{errors.university}</p>
           )}
         </div>
 
-        {/* Medical Board */}
+          {/* Fecha de Graduación - 1/3 del espacio */}
+          <div className="space-y-2">
+            <Label htmlFor="graduationYear">
+              <Calendar className="h-4 w-4 inline mr-1" />
+              Fecha de Graduación <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="graduationYear"
+              type="text"
+              value={formData.graduationYear}
+              onChange={(e) => handleDateChange(e.target.value)}
+              placeholder="dd/mm/yyyy"
+              maxLength={10}
+              className={`${errors.graduationYear ? 'border-red-500' : ''} ${
+                formData.graduationYear && validateDateFormat(formData.graduationYear) 
+                  ? 'border-green-500' 
+                  : ''
+              }`}
+            />
+            {errors.graduationYear && (
+              <p className="text-sm text-red-500">{errors.graduationYear}</p>
+            )}
+            {formData.graduationYear && !validateDateFormat(formData.graduationYear) && (
+              <p className="text-xs text-orange-600">
+                Formato: día/mes/año (ej: 15/03/2020)
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Colegio de Médicos - Ancho completo */}
         <div className="space-y-2">
           <Label htmlFor="medicalBoard">
             Colegio de Médicos <span className="text-red-500">*</span>
           </Label>
-          <div className="relative">
-            <div className="flex gap-2">
-              <Input
-                id="medicalBoard"
-                type="text"
+          <Select
                 value={formData.medicalBoard}
-                onChange={(e) => onFieldChange('medicalBoard', e.target.value)}
-                placeholder="Escriba el nombre del colegio de médicos"
-                className={errors.medicalBoard ? 'border-red-500' : ''}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowMedicalBoardList(!showMedicalBoardList)}
-                className="flex-shrink-0"
-              >
-                <Building className="h-4 w-4" />
-              </Button>
+            onValueChange={(value) => onFieldChange('medicalBoard', value)}
+          >
+            <SelectTrigger className={errors.medicalBoard ? 'border-red-500' : ''}>
+              <SelectValue placeholder="Seleccione su colegio de médicos" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {MEDICAL_COLLEGES.map((college) => (
+                <SelectItem key={college} value={college}>
+                  {college}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.medicalBoard && (
+            <p className="text-sm text-red-500">{errors.medicalBoard}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Seleccione el colegio de médicos de su estado de registro
+          </p>
             </div>
             
-            {/* Medical board dropdown */}
-            {showMedicalBoardList && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                {MEDICAL_COLLEGES.map((board, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                    onClick={() => selectMedicalBoard(board)}
-                  >
-                    {board}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {errors.medicalBoard && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{errors.medicalBoard}</AlertDescription>
-            </Alert>
-          )}
-          <p className="text-sm text-muted-foreground">
-            Seleccione el colegio de médicos donde está registrado
+        {/* Información adicional */}
+        <div className="bg-blue-50 p-3 rounded-md">
+          <p className="text-sm text-blue-700">
+            ℹ️ <strong>Información importante:</strong> La universidad y colegio médico deben coincidir 
+            con los datos registrados en SACS. Esta información será verificada automáticamente.
           </p>
         </div>
       </CardContent>

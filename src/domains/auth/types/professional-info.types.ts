@@ -13,11 +13,10 @@ export type DocumentType = 'cedula_identidad' | 'cedula_extranjera';
 export interface ProfessionalInfoFormData {
   yearsOfExperience: number;
   bio: string;
-  licenseNumber: string;
   documentType: DocumentType;
   documentNumber: string;
   university: string;
-  graduationYear: number | undefined;
+  graduationYear: string; // Formato: dd/mm/yyyy
   medicalBoard: string;
 }
 
@@ -25,7 +24,6 @@ export interface ProfessionalInfoFormData {
 export interface ProfessionalInfoFormErrors {
   yearsOfExperience?: string;
   bio?: string;
-  licenseNumber?: string;
   documentType?: string;
   documentNumber?: string;
   university?: string;
@@ -82,13 +80,7 @@ export const DOCUMENT_PATTERNS = {
   cedula_extranjera: /^[E]-?\d{7,8}$/i
 } as const;
 
-// License number validation patterns
-export const LICENSE_PATTERNS = {
-  // Patrón típico de matrícula médica venezolana
-  medical_license: /^\d{4,8}$/,
-  // Patrón alternativo con letras
-  medical_license_alt: /^[A-Z]{1,3}\d{4,8}$/i
-} as const;
+// (Eliminado) Patrones de matrícula médica: ya no se solicitan en Fase 2
 
 // Experience validation constants
 export const EXPERIENCE_VALIDATION = {
@@ -100,8 +92,8 @@ export const EXPERIENCE_VALIDATION = {
 
 // Bio validation constants
 export const BIO_VALIDATION = {
-  MIN_LENGTH: 50,
-  MAX_LENGTH: 500,
+  MIN_LENGTH: 50, // Reducido para permitir registro más fácil
+  MAX_LENGTH: 1000, // Aumentado para coincidir con schema
   RECOMMENDED_MIN: 100,
   RECOMMENDED_MAX: 300
 } as const;

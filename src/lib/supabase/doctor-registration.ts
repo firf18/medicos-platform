@@ -7,7 +7,7 @@
 
 import { createClient } from './client';
 import { DoctorRegistrationData } from '@/types/medical/specialties';
-import { logSecurityEvent } from '@/lib/validations/doctor-registration';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
 
 export interface DoctorRegistrationResponse {
   success: boolean;

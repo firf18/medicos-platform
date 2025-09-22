@@ -6,7 +6,7 @@
  */
 
 import { logger } from '@/lib/logging/logger';
-import { logSecurityEvent } from '@/lib/validations/doctor-registration';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
 import { shouldLogDataUpdate } from '@/lib/config/logging';
 import { DoctorRegistrationData, RegistrationStep } from '@/types/medical/specialties';
 

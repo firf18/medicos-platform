@@ -6,7 +6,7 @@
 
 import { DoctorRegistrationData } from '@/types/medical/specialties';
 import { FormattedError } from '@/lib/error-handling/zod-error-formatter';
-import { PasswordStrengthResult } from '@/lib/validations/doctor-registration';
+import { PasswordStrengthResult } from '@/lib/validations/personal-info.validations';
 
 // Form data interface for personal info step
 export interface PersonalInfoFormData {

@@ -12,12 +12,12 @@ import PersonalInfoStep from '@/components/auth/doctor-registration/PersonalInfo
 import ProfessionalInfoStep from '@/components/auth/doctor-registration/ProfessionalInfoStep';
 import LicenseVerificationStep from '@/components/auth/doctor-registration/LicenseVerificationStep';
 import SpecialtySelectionStep from '@/components/auth/doctor-registration/SpecialtySelectionStep';
-import IdentityVerificationStep from '@/components/auth/doctor-registration/IdentityVerificationStep';
+import DiditVerificationStep from '@/components/auth/doctor-registration/DiditVerificationStep';
 import DashboardConfigurationStep from '@/components/auth/doctor-registration/DashboardConfigurationStep';
 import FinalReviewStep from '@/components/auth/doctor-registration/FinalReviewStep';
 
 import { RegistrationStep } from '@/types/medical/specialties';
-import { getSpecialtyById } from '@/lib/medical-specialties';
+import { getSpecialtyById } from '@/lib/medical-specialties/specialty-utils';
 import { useDoctorRegistration } from '@/domains/auth/hooks/useDoctorRegistration';
 import { useAutoCleanup } from '@/hooks/useAutoCleanup';
 
@@ -107,7 +107,9 @@ export default function DoctorRegistrationPage() {
       onStepError: handleStepError,
       isLoading: isSubmitting,
       onFinalSubmit: handleFinalSubmitWrapper,
-      formErrors
+      formErrors,
+      onNext: goToNextStep,
+      onPrevious: goToPreviousStep
     };
 
     switch (progress.currentStep) {
@@ -120,7 +122,7 @@ export default function DoctorRegistrationPage() {
       case 'specialty_selection':
         return <SpecialtySelectionStep {...commonProps} />;
       case 'identity_verification':
-        return <IdentityVerificationStep {...commonProps} />;
+        return <DiditVerificationStep {...commonProps} />;
       case 'dashboard_configuration':
         return <DashboardConfigurationStep {...commonProps} />;
       case 'final_review':
@@ -135,6 +137,96 @@ export default function DoctorRegistrationPage() {
     ? getSpecialtyById(registrationData.specialtyId)
     : null;
 
+  // Detectar si estamos en la fase 3 (selección de especialidad) para usar layout especial
+  const isSpecialtySelection = currentStepIndex === 2; // Índice 2 = Fase 3
+
+  if (isSpecialtySelection) {
+    // Layout de pantalla completa para selección de especialidad
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        {/* Header compacto solo para fases especiales */}
+        <div className="bg-white border-b px-6 py-3 flex-shrink-0">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Registro Médico</h1>
+              <p className="text-sm text-gray-600">Fase 3: Especialidad Médica - {Math.round(progressPercentage)}% completado</p>
+            </div>
+            
+            {/* Progress mini */}
+            <div className="flex items-center gap-2">
+              {REGISTRATION_STEPS.map((step, index) => {
+                const isCompleted = progress.completedSteps.includes(step.step);
+                const isCurrent = progress.currentStep === step.step;
+                
+                return (
+                  <div 
+                    key={step.step}
+                    className={`
+                      w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium
+                      ${isCompleted 
+                          ? 'bg-green-500 text-white' 
+                          : isCurrent 
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      }
+                    `}
+                    title={step.title}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      index + 1
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Volver */}
+            <Link href="/auth/register">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Contenido de pantalla completa */}
+        <div className="flex-1 overflow-y-auto pb-20">
+          {renderCurrentStep()}
+        </div>
+
+        {/* Navegación en el bottom */}
+        <div className="bg-white border-t px-6 py-4 flex-shrink-0">
+          <div className="max-w-7xl mx-auto flex justify-between">
+            {currentStepIndex > 0 ? (
+              <Button
+                variant="outline"
+                onClick={goToPreviousStep}
+                disabled={isSubmitting}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Anterior
+              </Button>
+            ) : (
+              <div></div>
+            )}
+
+            <Button
+              onClick={goToNextStep}
+              disabled={isSubmitting}
+            >
+              Siguiente
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Layout normal para otras fases
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
@@ -256,7 +348,7 @@ export default function DoctorRegistrationPage() {
 
           <Button
             onClick={goToNextStep}
-            disabled={!canProceedNext() || isSubmitting}
+            disabled={isSubmitting}
           >
             Siguiente
             <ArrowRight className="h-4 w-4 ml-2" />

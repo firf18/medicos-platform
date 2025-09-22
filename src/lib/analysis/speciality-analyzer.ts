@@ -252,22 +252,40 @@ function validateMedicalProfessional(sacsData: SACSData): boolean {
 }
 
 /**
- * Detecta la especialidad del médico
+ * Detecta la especialidad del médico (puede ser múltiple)
  */
 function detectSpecialty(sacsData: SACSData): string {
+  const specialties: string[] = [];
+  
   // Priorizar especialidad específica si existe
   if (sacsData.especialidad) {
-    return sacsData.especialidad.toUpperCase();
+    // Si hay múltiples especialidades separadas por comas, guiones, o "Y"
+    const especialidadText = sacsData.especialidad.toUpperCase();
+    const separators = [',', ';', ' - ', ' Y ', ' Y', 'Y '];
+    
+    let foundMultiple = false;
+    for (const separator of separators) {
+      if (especialidadText.includes(separator)) {
+        const parts = especialidadText.split(separator).map(p => p.trim()).filter(p => p.length > 0);
+        specialties.push(...parts);
+        foundMultiple = true;
+        break;
+      }
+    }
+    
+    if (!foundMultiple) {
+      specialties.push(especialidadText);
+    }
   }
   
   // Buscar en la profesión SOLO si contiene palabras específicas de especialidad
-  if (sacsData.profession) {
+  if (sacsData.profession && specialties.length === 0) {
     const profession = sacsData.profession.toUpperCase();
     
     // Buscar coincidencias exactas de especialidades
     for (const [specialty, config] of Object.entries(MEDICAL_SPECIALTIES)) {
       if (profession.includes(specialty)) {
-        return specialty;
+        specialties.push(specialty);
       }
     }
     
@@ -278,12 +296,22 @@ function detectSpecialty(sacsData: SACSData): string {
       // Extraer la especialidad después de "ESPECIALISTA EN"
       const especialistaMatch = profession.match(/ESPECIALISTA EN\s+([^,]+)/);
       if (especialistaMatch) {
-        return especialistaMatch[1].trim();
+        specialties.push(especialistaMatch[1].trim());
       }
     }
   }
   
-  return 'MEDICINA GENERAL';
+  // Si no se encontraron especialidades, retornar medicina general
+  if (specialties.length === 0) {
+    return 'MEDICINA GENERAL';
+  }
+  
+  // Si hay múltiples especialidades, unirlas con "Y"
+  if (specialties.length > 1) {
+    return specialties.join(' Y ');
+  }
+  
+  return specialties[0];
 }
 
 /**

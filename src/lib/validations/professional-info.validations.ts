@@ -12,13 +12,8 @@ import { z } from 'zod';
 // ============================================================================
 
 export const professionalInfoSchema = z.object({
-  // Campos opcionales durante el proceso de registro
-  licenseNumber: z.string()
-    .min(6, 'El número de licencia debe tener al menos 6 caracteres')
-    .max(20, 'El número de licencia no puede exceder 20 caracteres')
-    .regex(/^[A-Z0-9-]+$/, 'El número de licencia solo puede contener letras mayúsculas, números y guiones')
-    .optional()
-    .or(z.literal('')),
+  // licenseNumber eliminado - ahora se obtiene automáticamente de SACS durante verificación
+  // El número de licencia MPPS se extrae automáticamente del scraping SACS
   
   licenseState: z.string()
     .min(2, 'Debe seleccionar un estado')
@@ -47,25 +42,35 @@ export const professionalInfoSchema = z.object({
   
   // Información académica y profesional - OPCIONALES durante el proceso de registro
   university: z.string()
-    .min(2, 'Debes seleccionar tu universidad de graduación')
+    .min(1, 'Debes seleccionar tu universidad de graduación')
     .max(100, 'La universidad no puede exceder 100 caracteres')
     .optional()
     .or(z.literal('')),
   
-  graduationYear: z.number()
-    .min(1950, 'El año de graduación no puede ser anterior a 1950')
-    .max(new Date().getFullYear(), 'El año de graduación no puede ser futuro')
-    .int('El año de graduación debe ser un número entero')
-    .optional(),
+  graduationYear: z.string()
+    .regex(/^(\d{2})\/(\d{2})\/(\d{4})$/, 'La fecha debe tener el formato dd/mm/yyyy')
+    .refine((dateStr) => {
+      if (!dateStr || dateStr === '') return true; // Permitir vacío durante el proceso
+      const [, day, month, year] = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/) || [];
+      const dayNum = parseInt(day);
+      const monthNum = parseInt(month);
+      const yearNum = parseInt(year);
+      
+      return dayNum >= 1 && dayNum <= 31 && 
+             monthNum >= 1 && monthNum <= 12 && 
+             yearNum >= 1950 && yearNum <= new Date().getFullYear();
+    }, 'Fecha de graduación inválida. Debe ser entre 1950 y el año actual')
+    .optional()
+    .or(z.literal('')),
   
   medicalBoard: z.string()
-    .min(2, 'Debes seleccionar tu colegio médico')
+    .min(1, 'Debes seleccionar tu colegio médico')
     .max(100, 'El colegio médico no puede exceder 100 caracteres')
     .optional()
     .or(z.literal('')),
   
   bio: z.string()
-    .min(100, 'La biografía debe tener al menos 100 caracteres')
+    .min(50, 'La biografía debe tener al menos 50 caracteres') // Reducido de 100 a 50
     .max(1000, 'La biografía no puede exceder 1000 caracteres')
     .refine((bio) => {
       if (!bio || bio === '') return true; // Permitir vacío durante el proceso

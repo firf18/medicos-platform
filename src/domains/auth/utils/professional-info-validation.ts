@@ -10,7 +10,6 @@ import {
   ValidationResult,
   DocumentType,
   DOCUMENT_PATTERNS,
-  LICENSE_PATTERNS,
   EXPERIENCE_VALIDATION,
   BIO_VALIDATION,
   GRADUATION_YEAR_VALIDATION
@@ -25,7 +24,7 @@ import { isValidUniversity } from '../constants/medical-institutions';
 export const getDocumentPlaceholder = (documentType: DocumentType): string => {
   switch (documentType) {
     case 'cedula_identidad':
-      return 'V-12345678 o E-12345678';
+      return 'V-12345678';
     case 'cedula_extranjera':
       return 'E-12345678';
     default:
@@ -64,24 +63,7 @@ export const validateDocumentNumber = (
  * @param licenseNumber - Medical license number to validate
  * @returns Validation result with error message if invalid
  */
-export const validateLicenseNumber = (licenseNumber: string): { isValid: boolean; error?: string } => {
-  if (!licenseNumber.trim()) {
-    return { isValid: false, error: 'El número de matrícula es requerido' };
-  }
-
-  const isValidFormat = Object.values(LICENSE_PATTERNS).some(pattern => 
-    pattern.test(licenseNumber)
-  );
-
-  if (!isValidFormat) {
-    return {
-      isValid: false,
-      error: 'Formato de matrícula inválido. Debe ser numérico (ej: 12345) o alfanumérico (ej: MP12345)'
-    };
-  }
-
-  return { isValid: true };
-};
+// Eliminado: ya no validamos matrícula en la Fase 2
 
 /**
  * Validate years of experience
@@ -288,12 +270,7 @@ export const validateProfessionalInfoForm = (formData: ProfessionalInfoFormData)
     isValid = false;
   }
 
-  // Validate license number
-  const licenseValidation = validateLicenseNumber(formData.licenseNumber);
-  if (!licenseValidation.isValid) {
-    errors.licenseNumber = licenseValidation.error;
-    isValid = false;
-  }
+  // Ya no se exige matrícula en Fase 2
 
   // Validate experience
   const experienceValidation = validateExperience(formData.yearsOfExperience);

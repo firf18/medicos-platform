@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { LayoutDashboard, Clock, CheckCircle } from 'lucide-react';
 import { DoctorRegistrationData } from '@/types/medical/specialties';
-import { getDashboardFeatures } from '@/lib/medical-specialties';
+import { getDashboardFeatures } from '@/lib/medical-specialties/specialty-utils';
 
 interface DashboardConfigSectionProps {
   data: DoctorRegistrationData;

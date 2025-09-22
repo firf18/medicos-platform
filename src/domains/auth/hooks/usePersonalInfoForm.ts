@@ -112,12 +112,10 @@ export const usePersonalInfoForm = ({
       // Validación en tiempo real y limpieza de errores
       setErrors(prevErrors => {
         const next = { ...prevErrors } as any;
-        // Reglas por campo
+        // Reglas por campo - Solo validar cuando el campo tiene contenido o ya fue tocado
         if (field === 'firstName' || field === 'lastName') {
           const onlyLetters = /^[A-ZÁÉÍÓÚÑ\s]{2,}$/;
-          if (!newData[field]) {
-            next[field] = field === 'firstName' ? 'El nombre es requerido' : 'El apellido es requerido';
-          } else if (!onlyLetters.test(newData[field])) {
+          if (newData[field] && !onlyLetters.test(newData[field])) {
             next[field] = 'Solo letras y mínimo 2 caracteres';
           } else {
             delete next[field];
@@ -125,9 +123,7 @@ export const usePersonalInfoForm = ({
         }
         if (field === 'email') {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!newData.email) {
-            next.email = 'El correo electrónico es requerido';
-          } else if (!emailRegex.test(newData.email)) {
+          if (newData.email && !emailRegex.test(newData.email)) {
             next.email = 'Formato de correo electrónico inválido';
           } else {
             delete next.email;
@@ -138,19 +134,16 @@ export const usePersonalInfoForm = ({
           const mobileVE = /^(412|414|416|424|426)\d{7}$/; // 10 dígitos
           const mobileVE58 = /^58(412|414|416|424|426)\d{7}$/; // 12 dígitos incluyendo 58
           const landlineVE = /^2\d{9}$/; // 10 dígitos iniciando en 2
-          if (!digitsOnly) {
-            next.phone = 'El número de teléfono es requerido';
-          } else if (mobileVE.test(digitsOnly) || mobileVE58.test(digitsOnly) || landlineVE.test(digitsOnly)) {
-            delete next.phone;
-          } else {
+          if (digitsOnly && !(mobileVE.test(digitsOnly) || mobileVE58.test(digitsOnly) || landlineVE.test(digitsOnly))) {
             next.phone = 'Debe ser un número venezolano válido';
+          } else {
+            delete next.phone;
           }
         }
         if (field === 'password') {
-          if (!newData.password) {
-            next.password = 'La contraseña es requerida';
-          } else {
-            delete next.password;
+          // Solo validar contraseña cuando hay contenido
+          if (newData.password) {
+            delete next.password; // La validación de fuerza se hace aparte
           }
           // Revalidar confirmación ante cambios de contraseña
           if (newData.confirmPassword) {
@@ -162,9 +155,7 @@ export const usePersonalInfoForm = ({
           }
         }
         if (field === 'confirmPassword') {
-          if (!newData.confirmPassword) {
-            next.confirmPassword = 'La confirmación de contraseña es requerida';
-          } else if (newData.confirmPassword !== newData.password) {
+          if (newData.confirmPassword && newData.confirmPassword !== newData.password) {
             next.confirmPassword = 'Las contraseñas no coinciden';
           } else {
             delete next.confirmPassword;
@@ -403,9 +394,8 @@ export const usePersonalInfoForm = ({
       setPasswordValidation(validation);
     }
 
-    // Recalcular errores del formulario para coherencia visual
-    const fullValidation = validatePersonalInfoForm(formData);
-    setErrors(fullValidation.errors);
+    // NO recalcular errores del formulario al inicio para evitar campos rojos inmediatos
+    // Los errores se calculan solo cuando el usuario interactúa con los campos
   }, []);
 
   // Cleanup on unmount

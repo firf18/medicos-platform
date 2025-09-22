@@ -15,14 +15,12 @@ import { LicenseVerificationResult } from '../types/professional-info.types';
  */
 export const verifyMedicalLicense = async (
   documentNumber: string,
-  licenseNumber: string,
   fullName?: string
 ): Promise<LicenseVerificationResult> => {
   try {
     // Log the verification attempt for audit trail
     console.log('[LICENSE_VERIFICATION] Starting verification', {
       documentNumber: documentNumber.replace(/\d/g, 'X'), // Mask for security
-      licenseNumber: licenseNumber.replace(/\d/g, 'X'),
       timestamp: new Date().toISOString()
     });
 
@@ -32,9 +30,10 @@ export const verifyMedicalLicense = async (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        documentType: documentNumber.startsWith('E-') ? 'cedula_extranjera' : 'cedula_identidad',
         documentNumber,
-        licenseNumber,
-        fullName
+        firstName: fullName?.split(' ')[0] || '',
+        lastName: fullName?.split(' ').slice(1).join(' ') || ''
       }),
     });
 
@@ -49,7 +48,8 @@ export const verifyMedicalLicense = async (
       throw new Error(`Verification failed: ${response.status} ${response.statusText}`);
     }
 
-    const result: LicenseVerificationResult = await response.json();
+    const api = await response.json();
+    const result: LicenseVerificationResult = api.result ?? api;
 
     // Log successful verification (without sensitive data)
     console.log('[LICENSE_VERIFICATION] Verification completed', {

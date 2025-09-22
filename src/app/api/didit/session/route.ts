@@ -1,124 +1,306 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getDiditInstance, type VenezuelanDoctorData } from '@/lib/didit-integration'
+/**
+ * 🎯 DIDIT SESSION MANAGEMENT ENDPOINT
+ * 
+ * Endpoint para crear y gestionar sesiones de verificación de Didit
+ * Usa el sistema correcto de sesiones de Didit
+ * 
+ * @version 2.0.0
+ * @author Platform Médicos Team
+ */
 
-// POST /api/didit/session
-// Crea una sesión de verificación Didit en el servidor y persiste el session_id
+import { NextRequest, NextResponse } from 'next/server';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
+
+// Configuración de Didit
+const DIDIT_CONFIG = {
+  apiKey: process.env.DIDIT_API_KEY,
+  baseUrl: 'https://verification.didit.me/v2',
+  timeout: 30000, // 30 segundos
+};
+
+// Tipos para sesiones de Didit
+interface CreateSessionRequest {
+  workflow_id: string;
+  vendor_data: string;
+  callback?: string;
+  expected_details?: {
+    first_name?: string;
+    last_name?: string;
+    date_of_birth?: string;
+    document_number?: string;
+  };
+}
+
+interface CreateSessionResponse {
+  session_id: string;
+  session_url: string;
+  expires_at: string;
+  created_at: string;
+}
+
+interface SessionDecisionResponse {
+  session_id: string;
+  status: 'Not Started' | 'In Progress' | 'In Review' | 'Approved' | 'Declined' | 'Abandoned';
+  decision?: {
+    session_id: string;
+    status: string;
+    workflow_id: string;
+    features: string[];
+    vendor_data: string;
+    metadata: Record<string, any>;
+    id_verification?: {
+      status: string;
+      document_type: string;
+      document_number: string;
+      first_name: string;
+      last_name: string;
+      date_of_birth: string;
+      nationality: string;
+    };
+    face_match?: {
+      status: string;
+      match_score: number;
+      confidence_level: string;
+    };
+    aml_check?: {
+      status: string;
+      overall_risk_score: number;
+      risk_level: string;
+    };
+    passive_liveness?: {
+      status: string;
+      liveness_score: number;
+      is_live: boolean;
+    };
+  };
+}
+
+/**
+ * Crea una nueva sesión de verificación en Didit
+ */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const body = await request.json();
+    const { workflow_id, vendor_data, callback, expected_details } = body as CreateSessionRequest;
 
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 401 })
-    }
-    if (!user) {
-      return NextResponse.json({ error: 'No authenticated user' }, { status: 401 })
-    }
-
-    const body = (await request.json()) as Partial<VenezuelanDoctorData> & {
-      callbackUrl?: string
-    }
-
-    // Validaciones mínimas
-    const required: Array<keyof VenezuelanDoctorData> = [
-      'firstName',
-      'lastName',
-      'email',
-      'phone',
-      'licenseNumber',
-      'specialty',
-      'documentType',
-      'documentNumber',
-    ]
-    const missing = required.filter((k) => !body[k])
-    if (missing.length > 0) {
+    // Validar datos requeridos
+    if (!workflow_id || !vendor_data) {
       return NextResponse.json(
-        { error: `Faltan campos requeridos: ${missing.join(', ')}` },
-        { status: 400 },
-      )
+        { error: 'workflow_id y vendor_data son requeridos' },
+        { status: 400 }
+      );
     }
 
-    const didit = getDiditInstance()
-    const session = await didit.createVerificationSession(
-      {
-        firstName: body.firstName!,
-        lastName: body.lastName!,
-        email: body.email!,
-        phone: body.phone!,
-        licenseNumber: body.licenseNumber!,
-        specialty: body.specialty!,
-        documentType: body.documentType!,
-        documentNumber: body.documentNumber!,
-        medicalBoard: body.medicalBoard,
-        university: body.university,
+    // Preparar payload para Didit
+    const diditPayload = {
+      workflow_id,
+      vendor_data,
+      ...(callback && { callback }),
+      ...(expected_details && { expected_details })
+    };
+
+    // Validar configuración obligatoria
+    if (!DIDIT_CONFIG.apiKey) {
+      return NextResponse.json(
+        { error: 'Configuración de Didit incompleta: falta DIDIT_API_KEY' },
+        { status: 500 }
+      );
+    }
+
+    // Llamar a Didit API
+    const response = await fetch(`${DIDIT_CONFIG.baseUrl}/session/`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': DIDIT_CONFIG.apiKey as string,
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+        'User-Agent': 'Platform-Medicos/2.0.0'
       },
-      body.callbackUrl,
-    )
+      body: JSON.stringify(diditPayload),
+      signal: AbortSignal.timeout(DIDIT_CONFIG.timeout)
+    });
 
-    // Upsert en doctor_registrations para vincular la sesión
-    // 1) intentar encontrar por user_id
-    const { data: existingByUser } = await supabase
-      .from('doctor_registrations')
-      .select('id, user_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Error creando sesión en Didit:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
 
-    const registrationPayload: Record<string, any> = {
-      user_id: user.id,
-      email: body.email,
-      first_name: body.firstName,
-      last_name: body.lastName,
-      phone: body.phone,
-      license_number: body.licenseNumber,
-      specialty_id: body.specialty,
-      verification_status: 'pending',
-      verification_session_id: session.session_id,
-      updated_at: new Date().toISOString(),
+      return NextResponse.json(
+        { 
+          error: 'Error creando sesión de verificación',
+          details: errorData.detail || response.statusText,
+          status: response.status
+        },
+        { status: response.status }
+      );
     }
 
-    if (existingByUser?.id) {
-      const { error: updateErr } = await supabase
-        .from('doctor_registrations')
-        .update(registrationPayload)
-        .eq('id', existingByUser.id)
-      if (updateErr) {
-        // Si falla por conflicto (e.g. licencia ya usada por otro), devolver 409
-        return NextResponse.json(
-          { error: `No se pudo actualizar registro: ${updateErr.message}` },
-          { status: updateErr.code === '23505' ? 409 : 400 },
-        )
-      }
-    } else {
-      const { error: insertErr } = await supabase
-        .from('doctor_registrations')
-        .insert({
-          ...registrationPayload,
-          created_at: new Date().toISOString(),
-        })
-      if (insertErr) {
-        return NextResponse.json(
-          { error: `No se pudo crear registro: ${insertErr.message}` },
-          { status: insertErr.code === '23505' ? 409 : 400 },
-        )
-      }
-    }
+    const sessionData = await response.json() as CreateSessionResponse;
 
-    return NextResponse.json(
+    // Log de auditoría
+    logSecurityEvent(
+      'didit_session_created',
+      'Sesión de verificación Didit creada',
       {
-        success: true,
-        session_id: session.session_id,
-        session_number: session.session_number,
-        verification_url: session.url,
-        status: session.status,
+        sessionId: sessionData.session_id,
+        workflowId: workflow_id,
+        vendorData: vendor_data,
+        callback: callback
       },
-      { status: 201 },
-    )
+      'info'
+    );
+
+    return NextResponse.json({
+      success: true,
+      session_id: sessionData.session_id,
+      session_url: sessionData.session_url,
+      expires_at: sessionData.expires_at,
+      created_at: sessionData.created_at,
+      message: 'Sesión de verificación creada exitosamente'
+    });
+
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unexpected error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Error en endpoint de creación de sesión:', error);
+    
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Obtiene el estado y decisión de una sesión
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('session_id');
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: 'session_id es requerido' },
+        { status: 400 }
+      );
+    }
+
+    // Validar configuración obligatoria
+    if (!DIDIT_CONFIG.apiKey) {
+      return NextResponse.json(
+        { error: 'Configuración de Didit incompleta: falta DIDIT_API_KEY' },
+        { status: 500 }
+      );
+    }
+
+    // Llamar a Didit API para obtener decisión
+    const response = await fetch(`${DIDIT_CONFIG.baseUrl}/session/${sessionId}/decision/`, {
+      method: 'GET',
+      headers: {
+        'x-api-key': DIDIT_CONFIG.apiKey as string,
+        'accept': 'application/json',
+        'User-Agent': 'Platform-Medicos/2.0.0'
+      },
+      signal: AbortSignal.timeout(DIDIT_CONFIG.timeout)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { 
+          error: 'Error obteniendo estado de sesión',
+          details: errorData.detail || response.statusText
+        },
+        { status: response.status }
+      );
+    }
+
+    const sessionDecision = await response.json() as SessionDecisionResponse;
+
+    // Log de auditoría
+    logSecurityEvent(
+      'didit_session_status_checked',
+      'Estado de sesión Didit consultado',
+      {
+        sessionId,
+        status: sessionDecision.status,
+        hasDecision: !!sessionDecision.decision
+      },
+      'info'
+    );
+
+    return NextResponse.json({
+      success: true,
+      session_id: sessionDecision.session_id,
+      status: sessionDecision.status,
+      decision: sessionDecision.decision,
+      message: 'Estado de sesión obtenido exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo estado de sesión:', error);
+    
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Webhook handler para actualizaciones de sesión
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { session_id, status, decision } = body;
+
+    if (!session_id || !status) {
+      return NextResponse.json(
+        { error: 'session_id y status son requeridos' },
+        { status: 400 }
+      );
+    }
+
+    // Log de auditoría
+    logSecurityEvent(
+      'didit_session_updated',
+      'Sesión de verificación Didit actualizada',
+      {
+        sessionId: session_id,
+        status,
+        hasDecision: !!decision
+      },
+      'info'
+    );
+
+    // Aquí podrías actualizar tu base de datos con el nuevo estado
+    // Por ahora solo logueamos el evento
+
+    return NextResponse.json({
+      success: true,
+      session_id,
+      status,
+      message: 'Estado de sesión actualizado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error actualizando estado de sesión:', error);
+    
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      },
+      { status: 500 }
+    );
   }
 }

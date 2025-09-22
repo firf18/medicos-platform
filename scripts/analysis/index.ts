@@ -21,13 +21,7 @@ export type {
   ResponsibilityReport 
 } from './ResponsibilityAnalyzer';
 
-export { DependencyAnalyzer } from './DependencyAnalyzer';
-export type { 
-  DependencyConfig, 
-  DependencyResult, 
-  DependencyReport,
-  DependencyNode
-} from './DependencyAnalyzer';
+// DependencyAnalyzer removed due to corruption - can be recreated if needed
 
 // Export analysis configuration
 export const DEFAULT_ANALYSIS_CONFIG = {

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth';
-import { getSpecialtyById } from '@/lib/medical-specialties';
+import { getSpecialtyById } from '@/lib/medical-specialties/specialty-utils';
 
 export default function DashboardRedirect() {
   const router = useRouter();

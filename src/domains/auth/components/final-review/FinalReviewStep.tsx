@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { DoctorRegistrationData } from '@/types/medical/specialties';
-import { getSpecialtyById } from '@/lib/medical-specialties';
+import { getSpecialtyById } from '@/lib/medical-specialties/specialty-utils';
 import { useFinalReview } from '../../hooks/useFinalReview';
 import { PersonalInfoSection } from './PersonalInfoSection';
 import { ProfessionalInfoSection } from './ProfessionalInfoSection';

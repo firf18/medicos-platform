@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 import { DoctorRegistrationData, WorkingHours, DaySchedule } from '@/types/medical/specialties';
-import { getSpecialtyById, getDashboardFeatures } from '@/lib/medical-specialties';
+import { getSpecialtyById, getDashboardFeatures } from '@/lib/medical-specialties/specialty-utils';
 
 interface DashboardConfigurationStepProps {
   data: DoctorRegistrationData;

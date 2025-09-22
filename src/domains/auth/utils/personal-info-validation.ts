@@ -15,7 +15,7 @@ import {
   PHONE_VALIDATION,
   PASSWORD_VALIDATION
 } from '../types/personal-info.types';
-import { validatePasswordStrength } from '@/lib/validations/doctor-registration';
+import { validatePasswordStrength } from '@/lib/validations/personal-info.validations';
 
 /**
  * Validate first name or last name

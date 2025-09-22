@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { RegistrationStep, DoctorRegistrationData, RegistrationProgress } from '@/types/medical/specialties';
 import { toast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logging/logger';
-import { logSecurityEvent } from '@/lib/validations/doctor-registration';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
 
 interface UseRegistrationNavigationProps {
   currentStep: RegistrationStep;
@@ -35,9 +35,9 @@ export const useRegistrationNavigation = ({
     'personal_info',
     'professional_info',
     'specialty_selection',
-    'license_verification',
     'identity_verification',
-    'dashboard_configuration'
+    'dashboard_configuration',
+    'final_review'
   ];
 
   // Step routes mapping
@@ -45,9 +45,9 @@ export const useRegistrationNavigation = ({
     personal_info: '/auth/register/doctor',
     professional_info: '/auth/register/doctor?step=professional',
     specialty_selection: '/auth/register/doctor?step=specialty',
-    license_verification: '/auth/register/doctor?step=license',
     identity_verification: '/auth/register/doctor?step=identity',
-    dashboard_configuration: '/auth/register/doctor?step=dashboard'
+    dashboard_configuration: '/auth/register/doctor?step=dashboard',
+    final_review: '/auth/register/doctor?step=final'
   };
 
   /**
@@ -105,8 +105,8 @@ export const useRegistrationNavigation = ({
     // Navigate to target step
     onStepChange(targetStep);
     
-    // Update URL
-    router.push(stepInfo.route);
+    // Removed router.push to prevent URL navigation issues
+    // router.push(stepInfo.route);
     
     // Log navigation
     logSecurityEvent('registration_navigation', {
@@ -137,8 +137,27 @@ export const useRegistrationNavigation = ({
       return true;
     }
 
-    return goToStep(nextStep);
-  }, [currentStep, stepOrder, router, goToStep]);
+    // Validate current step before proceeding
+    const validation = await onValidateStep(currentStep, registrationData);
+    
+    if (!validation.isValid) {
+      toast({
+        title: 'Complete la información requerida',
+        description: validation.errors?.[0] || 'Por favor complete todos los campos obligatorios',
+        variant: 'destructive'
+      });
+      return false;
+    }
+
+    // Mark current step as completed
+    onStepComplete(currentStep);
+    
+    // Navigate to next step without additional validation
+    onStepChange(nextStep);
+    // Removed router.push to prevent URL navigation issues
+    
+    return true;
+  }, [currentStep, stepOrder, router, onValidateStep, registrationData, onStepComplete, onStepChange, stepRoutes]);
 
   /**
    * Navigate to previous step
@@ -194,23 +213,28 @@ export const useRegistrationNavigation = ({
    * Handle step error
    */
   const handleStepError = useCallback((step: RegistrationStep, error: string) => {
+    // Validar que el error no esté vacío
+    if (!error || error.trim().length === 0) {
+      console.warn('Intento de registrar error vacío:', { step, error });
+      return;
+    }
+
     toast({
       title: 'Error en el paso',
       description: error,
       variant: 'destructive'
     });
 
-    logger.error('registration', 'Step validation error', {
+    // Solo registrar si hay metadata válido
+    const errorMetadata = {
       step,
       error,
       timestamp: new Date().toISOString()
-    });
+    };
 
-    logSecurityEvent('registration_step_error', {
-      step,
-      error,
-      timestamp: new Date().toISOString()
-    });
+    logger.error('registration', 'Step validation error', errorMetadata);
+
+    logSecurityEvent('registration_step_error', errorMetadata);
   }, []);
 
   /**

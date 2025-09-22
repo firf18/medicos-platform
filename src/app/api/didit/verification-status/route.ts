@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDiditInstance, extractVerificationSummary } from '@/lib/didit-integration';
+import { getDiditConfig, getSessionStatus, processVerificationDecision } from '@/lib/didit-integration';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -23,7 +23,7 @@ interface VerificationStatusResponse {
   status: string;
   userFriendlyStatus: string;
   decision?: any;
-  summary?: ReturnType<typeof extractVerificationSummary>;
+  summary?: any; // Simplified type for now
   lastUpdated: string;
   error?: string;
 }
@@ -109,11 +109,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener resultados de Didit
-    const didit = getDiditInstance();
+    const config = getDiditConfig();
     const decision = await didit.getVerificationResults(sessionId);
     
     // Extraer resumen de verificación
-    const summary = extractVerificationSummary(decision);
+    const summary = processVerificationDecision(decision);
     
     // Preparar respuesta
     const response: VerificationStatusResponse = {
@@ -189,9 +189,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Obtener resultados actualizados de Didit
-    const didit = getDiditInstance();
+    const config = getDiditConfig();
     const decision = await didit.getVerificationResults(session_id);
-    const summary = extractVerificationSummary(decision);
+    const summary = processVerificationDecision(decision);
     
     // Actualizar en base de datos si hay cambios
     // Registrar en BD vía RPC (idempotente)

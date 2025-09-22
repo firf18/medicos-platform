@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { DoctorRegistrationData, RegistrationStep } from '@/types/medical/specialties';
 import { toast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logging/logger';
-import { logSecurityEvent } from '@/lib/validations/doctor-registration';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
 import { useRegistrationState } from './useRegistrationState';
 import { useRegistrationValidation } from './useRegistrationValidation';
 import { useRegistrationNavigation } from './useRegistrationNavigation';

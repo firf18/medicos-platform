@@ -20,8 +20,9 @@ export const specialtySelectionSchema = z.object({
     .optional(),
   
   selectedFeatures: z.array(z.string())
-    .min(1, 'Debe seleccionar al menos una característica del dashboard')
     .max(10, 'No puedes seleccionar más de 10 características')
+    .optional()
+    .default([])
 });
 
 // ============================================================================

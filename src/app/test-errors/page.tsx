@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useDoctorRegistrationErrors } from '@/hooks/useFormErrors';
 import MedicalErrorDisplay from '@/components/ui/medical-error-display';
 import { ZodError } from 'zod';
-import { personalInfoSchema } from '@/lib/validations/doctor-registration';
+import { personalInfoSchema } from '@/lib/validations/personal-info.validations';
 
 // Componente simple para mostrar errores inline
 function InlineFieldError({ error }: { error: string | null }) {
