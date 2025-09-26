@@ -23,6 +23,7 @@ import { useAutoCleanup } from '@/hooks/useAutoCleanup';
 import { errorMonitor } from '@/lib/monitoring/frontend-error-monitor';
 import { EmailVerificationProvider, useEmailVerification } from '@/contexts/EmailVerificationContext';
 import { emailVerificationTracker } from '@/lib/email-verification/verification-tracker';
+import { phoneVerificationTracker } from '@/lib/phone-verification/phone-verification-tracker';
 
 const REGISTRATION_STEPS: { step: RegistrationStep; title: string; description: string }[] = [
   {
@@ -304,6 +305,7 @@ function DoctorRegistrationPageContent() {
                 
                 // VERIFICACIÓN ROBUSTA CON TRACKER - NO SE PUEDE BYPASSEAR
                 const realEmailVerification = emailVerificationTracker.isEmailVerified(registrationData.email);
+                const realPhoneVerification = phoneVerificationTracker.isPhoneVerified(registrationData.phone);
                 
                 console.log('🔍 VALIDACIÓN ESTRICTA INICIADA:', {
                   hasAllFields,
@@ -314,6 +316,7 @@ function DoctorRegistrationPageContent() {
                   emailVerified,
                   phoneVerified,
                   realEmailVerification,
+                  realPhoneVerification,
                   isEmailVerified,
                   verifiedEmail,
                   currentEmail: registrationData.email,
@@ -364,8 +367,9 @@ function DoctorRegistrationPageContent() {
                 }
 
                 // 5. VALIDAR VERIFICACIÓN DE TELÉFONO (OBLIGATORIO - NO SE PUEDE BYPASSEAR)
-                if (!phoneVerified) {
-                  console.log('❌ TELÉFONO NO VERIFICADO:', {
+                if (!realPhoneVerification) {
+                  console.log('❌ TELÉFONO NO VERIFICADO (TRACKER):', {
+                    realPhoneVerification,
                     isPhoneVerified,
                     verifiedPhone,
                     currentPhone: registrationData.phone,
@@ -533,6 +537,7 @@ function DoctorRegistrationPageContent() {
                 
                 // VERIFICACIÓN ROBUSTA CON TRACKER - NO SE PUEDE BYPASSEAR
                 const realEmailVerification = emailVerificationTracker.isEmailVerified(registrationData.email);
+                const realPhoneVerification = phoneVerificationTracker.isPhoneVerified(registrationData.phone);
                 
                 console.log('🔍 VALIDACIÓN ESTRICTA INICIADA (BOTÓN 2):', {
                   hasAllFields,
@@ -543,6 +548,7 @@ function DoctorRegistrationPageContent() {
                   emailVerified,
                   phoneVerified,
                   realEmailVerification,
+                  realPhoneVerification,
                   isEmailVerified,
                   verifiedEmail,
                   currentEmail: registrationData.email,
@@ -593,8 +599,9 @@ function DoctorRegistrationPageContent() {
                 }
 
                 // 5. VALIDAR VERIFICACIÓN DE TELÉFONO (OBLIGATORIO - NO SE PUEDE BYPASSEAR)
-                if (!phoneVerified) {
-                  console.log('❌ TELÉFONO NO VERIFICADO (BOTÓN 2):', {
+                if (!realPhoneVerification) {
+                  console.log('❌ TELÉFONO NO VERIFICADO (BOTÓN 2 - TRACKER):', {
+                    realPhoneVerification,
                     isPhoneVerified,
                     verifiedPhone,
                     currentPhone: registrationData.phone,

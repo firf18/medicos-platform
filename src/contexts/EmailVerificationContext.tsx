@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { emailVerificationTracker } from '@/lib/email-verification/verification-tracker';
 
 interface EmailVerificationContextType {
   isEmailVerified: boolean;
@@ -112,6 +113,35 @@ export const EmailVerificationProvider: React.FC<EmailVerificationProviderProps>
       console.error('Error saving verification state:', error);
     }
   }, [isEmailVerified, verifiedEmail, isPhoneVerified, verifiedPhone]);
+
+  // Restaurar estado desde el tracker al inicializar
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const stored = localStorage.getItem(VERIFICATION_STORAGE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        
+        // Solo restaurar si la verificación sigue siendo válida en el tracker
+        if (data.verifiedEmail && emailVerificationTracker.hasActiveSession(data.verifiedEmail)) {
+          setIsEmailVerified(data.isEmailVerified);
+          setVerifiedEmail(data.verifiedEmail);
+          setVerifiedPhone(data.verifiedPhone);
+          setIsPhoneVerified(data.isPhoneVerified);
+          
+          console.log('🔄 Contexto: Estado restaurado desde storage:', {
+            isEmailVerified: data.isEmailVerified,
+            verifiedEmail: data.verifiedEmail,
+            isPhoneVerified: data.isPhoneVerified,
+            verifiedPhone: data.verifiedPhone
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring verification state:', error);
+    }
+  }, []);
 
   // Función para limpiar el estado de verificación
   const clearVerificationState = () => {

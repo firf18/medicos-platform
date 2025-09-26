@@ -7,6 +7,8 @@ import PasswordField from './PasswordField';
 import PasswordStrengthIndicator from './PasswordStrengthIndicator';
 import { EmailVerification } from '@/components/auth/EmailVerification';
 import { useEmailVerification } from '@/contexts/EmailVerificationContext';
+import { emailVerificationTracker } from '@/lib/email-verification/verification-tracker';
+import { phoneVerificationTracker } from '@/lib/phone-verification/phone-verification-tracker';
 import { validateEmail, validateName, validateVenezuelanPhone, validatePasswordStrength, checkEmailAvailability } from './utils';
 import type { EmailValidationResult, PasswordValidationResult, FormData } from './types';
 
@@ -67,12 +69,98 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     setFormData(initialFormData);
   }, [initialFormData]);
 
+  // Inicializar tracker de email si ya hay un email válido
+  useEffect(() => {
+    if (formData.email && validateEmail(formData.email)) {
+      // Verificar si hay una sesión activa
+      const hasActiveSession = emailVerificationTracker.hasActiveSession(formData.email);
+      
+      if (hasActiveSession) {
+        console.log('📧 Email ya tiene sesión activa al cargar componente');
+        setIsEmailVerified(true);
+        setVerifiedEmail(formData.email);
+        emailVerificationTracker.extendSession(formData.email);
+      } else {
+        console.log('📧 Inicializando tracker de email al cargar componente');
+        emailVerificationTracker.startVerification(formData.email);
+      }
+    }
+  }, [formData.email, setIsEmailVerified, setVerifiedEmail]);
+
+  // Inicializar tracker de teléfono si ya hay un teléfono válido
+  useEffect(() => {
+    if (formData.phone && validateVenezuelanPhone(formData.phone)) {
+      console.log('📱 Verificando teléfono al cargar componente:', formData.phone);
+      
+      // Verificar si hay una sesión activa
+      const hasActiveSession = phoneVerificationTracker.hasActiveSession(formData.phone);
+      
+      if (hasActiveSession) {
+        console.log('📱 Teléfono ya tiene sesión activa al cargar componente');
+        setIsPhoneVerified(true);
+        setVerifiedPhone(formData.phone);
+        phoneVerificationTracker.extendSession(formData.phone);
+      } else {
+        console.log('📱 Inicializando tracker de teléfono al cargar componente');
+        phoneVerificationTracker.startVerification(formData.phone);
+        
+        // Iniciar verificación automática inmediatamente
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            console.log('📱 Ejecutando verificación automática de teléfono');
+            phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
+            setIsPhoneVerified(true);
+            setVerifiedPhone(formData.phone);
+          }
+        }, 100);
+      }
+    }
+  }, [formData.phone, setIsPhoneVerified, setVerifiedPhone]);
+
+  // Inicializar tracker de teléfono desde el contexto si ya está verificado
+  useEffect(() => {
+    if (verifiedPhone && validateVenezuelanPhone(verifiedPhone)) {
+      console.log('📱 Inicializando tracker de teléfono desde contexto:', verifiedPhone);
+      
+      // Verificar si hay una sesión activa
+      const hasActiveSession = phoneVerificationTracker.hasActiveSession(verifiedPhone);
+      
+      if (!hasActiveSession) {
+        console.log('📱 Creando sesión para teléfono verificado en contexto');
+        phoneVerificationTracker.startVerification(verifiedPhone);
+        phoneVerificationTracker.markAsVerified(verifiedPhone, 'auto');
+      } else {
+        console.log('📱 Extendiendo sesión para teléfono verificado en contexto');
+        phoneVerificationTracker.extendSession(verifiedPhone);
+      }
+    }
+  }, [verifiedPhone]);
+
   // Verificar si el email actual ya está verificado
   useEffect(() => {
     if (formData.email && verifiedEmail === formData.email) {
-      // El email actual ya está verificado
-      console.log('✅ Email ya verificado:', { formDataEmail: formData.email, verifiedEmail });
-      setIsEmailVerified(true);
+      // Verificar si hay una sesión activa en el tracker
+      const hasActiveSession = emailVerificationTracker.hasActiveSession(formData.email);
+      
+      if (hasActiveSession) {
+        // El email actual ya está verificado con sesión activa
+        console.log('✅ Email ya verificado con sesión activa:', { 
+          formDataEmail: formData.email, 
+          verifiedEmail,
+          hasActiveSession 
+        });
+        setIsEmailVerified(true);
+        // Extender la sesión
+        emailVerificationTracker.extendSession(formData.email);
+      } else {
+        // Sesión expirada, resetear verificación
+        console.log('⏰ Sesión de email expirada, reseteando verificación:', { 
+          formDataEmail: formData.email, 
+          verifiedEmail 
+        });
+        setIsEmailVerified(false);
+        setVerifiedEmail(null);
+      }
     } else if (formData.email && verifiedEmail && verifiedEmail !== formData.email) {
       // El email cambió, resetear verificación solo si hay un email diferente verificado
       console.log('🔄 Email cambió, reseteando verificación:', { 
@@ -92,16 +180,46 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         isEmailAvailable === true && 
         !isEmailVerified && 
         !showEmailVerification) {
-      setShowEmailVerification(true);
+      
+      // Verificar si hay una sesión activa antes de mostrar verificación
+      const hasActiveSession = emailVerificationTracker.hasActiveSession(formData.email);
+      
+      if (!hasActiveSession) {
+        console.log('🔍 Iniciando verificación de email - no hay sesión activa');
+        setShowEmailVerification(true);
+      } else {
+        console.log('✅ Email ya tiene sesión activa, no mostrar verificación');
+        setIsEmailVerified(true);
+        setVerifiedEmail(formData.email);
+      }
     }
   }, [formData.email, isEmailAvailable, isEmailVerified, showEmailVerification, emailValidationResult]);
 
   // Verificar si el teléfono actual ya está verificado
   useEffect(() => {
     if (formData.phone && verifiedPhone === formData.phone) {
-      // El teléfono actual ya está verificado
-      console.log('✅ Teléfono ya verificado:', { formDataPhone: formData.phone, verifiedPhone });
-      setIsPhoneVerified(true);
+      // Verificar si hay una sesión activa en el tracker
+      const hasActiveSession = phoneVerificationTracker.hasActiveSession(formData.phone);
+      
+      if (hasActiveSession) {
+        // El teléfono actual ya está verificado con sesión activa
+        console.log('✅ Teléfono ya verificado con sesión activa:', { 
+          formDataPhone: formData.phone, 
+          verifiedPhone,
+          hasActiveSession 
+        });
+        setIsPhoneVerified(true);
+        // Extender la sesión
+        phoneVerificationTracker.extendSession(formData.phone);
+      } else {
+        // Sesión expirada, resetear verificación
+        console.log('⏰ Sesión de teléfono expirada, reseteando verificación:', { 
+          formDataPhone: formData.phone, 
+          verifiedPhone 
+        });
+        setIsPhoneVerified(false);
+        setVerifiedPhone(null);
+      }
     } else if (formData.phone && verifiedPhone && verifiedPhone !== formData.phone) {
       // El teléfono cambió, resetear verificación solo si hay un teléfono diferente verificado
       console.log('🔄 Teléfono cambió, reseteando verificación:', { 
@@ -116,23 +234,63 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
 
   // Iniciar verificación automática del teléfono cuando sea válido
   useEffect(() => {
-    if (formData.phone && 
-        validateVenezuelanPhone(formData.phone) && 
-        !isPhoneVerified) {
-      // Simular verificación automática del teléfono
-      const timeoutId = setTimeout(() => {
-        if (isMountedRef.current) {
-          setIsPhoneVerified(true);
-          setVerifiedPhone(formData.phone);
-        }
-      }, 500);
+    if (formData.phone && validateVenezuelanPhone(formData.phone)) {
+      // Verificar si hay una sesión activa antes de verificar
+      const hasActiveSession = phoneVerificationTracker.hasActiveSession(formData.phone);
+      const isVerifiedInTracker = phoneVerificationTracker.isPhoneVerified(formData.phone);
       
-      // Cleanup function
-      return () => {
-        clearTimeout(timeoutId);
-      };
+      console.log('📱 [PHONE-VERIFICATION] Estado actual:', {
+        phone: formData.phone,
+        hasActiveSession,
+        isVerifiedInTracker,
+        isPhoneVerified,
+        verifiedPhone
+      });
+      
+      if (!hasActiveSession && !isVerifiedInTracker) {
+        console.log('📱 Iniciando verificación automática de teléfono - no hay sesión activa');
+        
+        // Iniciar verificación en el tracker
+        phoneVerificationTracker.startVerification(formData.phone);
+        
+        // Simular verificación automática del teléfono
+        const timeoutId = setTimeout(() => {
+          if (isMountedRef.current) {
+            // Marcar como verificado en el tracker
+            phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
+            
+            // Actualizar contexto
+            setIsPhoneVerified(true);
+            setVerifiedPhone(formData.phone);
+            
+            console.log('✅ [PHONE-VERIFICATION] Teléfono marcado como verificado:', formData.phone);
+          }
+        }, 1000); // Aumentar timeout para asegurar que el registro se complete
+        
+        // Cleanup function
+        return () => {
+          clearTimeout(timeoutId);
+        };
+      } else if (hasActiveSession || isVerifiedInTracker) {
+        console.log('✅ Teléfono ya tiene sesión activa o está verificado, restaurando estado');
+        setIsPhoneVerified(true);
+        setVerifiedPhone(formData.phone);
+        // Extender la sesión si existe
+        if (hasActiveSession) {
+          phoneVerificationTracker.extendSession(formData.phone);
+        }
+      } else if (isPhoneVerified && verifiedPhone === formData.phone && !isVerifiedInTracker) {
+        // Caso especial: el contexto dice que está verificado pero el tracker no tiene registro
+        console.log('🔧 [PHONE-VERIFICATION] Sincronizando estado: contexto verificado pero tracker sin registro');
+        
+        // Crear registro en el tracker para sincronizar
+        phoneVerificationTracker.startVerification(formData.phone);
+        phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
+        
+        console.log('✅ [PHONE-VERIFICATION] Estado sincronizado en tracker');
+      }
     }
-  }, [formData.phone, isPhoneVerified, setIsPhoneVerified, setVerifiedPhone]);
+  }, [formData.phone, isPhoneVerified, verifiedPhone, setIsPhoneVerified, setVerifiedPhone]);
 
   // Marcar campo como tocado
   const markFieldAsTouched = useCallback((field: string, value: string) => {
