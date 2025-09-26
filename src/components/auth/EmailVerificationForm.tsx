@@ -115,141 +115,64 @@ export default function EmailVerificationForm({
     setLoading(true);
 
     try {
-      console.log('🔍 Iniciando verificación OTP...');
+      console.log('🔍 Verificando código OTP...');
       console.log('📧 Email:', email);
       console.log('🔢 Código:', fullCode);
-      console.log('👤 Tipo de usuario:', userType);
       
-      // Limpiar cualquier sesión previa
-      try {
-        await supabase.auth.signOut();
-        console.log('🧹 Sesión previa limpiada');
-      } catch (signOutError) {
-        console.log('⚠️ No se pudo limpiar sesión previa (normal):', signOutError);
-      }
+      // Usar la nueva API de verificación
+      const response = await fetch('/api/auth/verify-email-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          code: fullCode
+        }),
+      });
 
-      // Normalizar email
-      const normalizedEmail = email.trim().toLowerCase();
-      console.log('📧 Email normalizado:', normalizedEmail);
+      const result = await response.json();
 
-      // Intentar múltiples métodos de verificación
-      const verificationMethods = [
-        { type: 'signup', description: 'Verificación de registro' },
-        { type: 'email', description: 'Verificación de email' },
-        { type: 'email_change', description: 'Verificación de cambio de email' }
-      ];
-
-      let successResult = null;
-      let lastError = null;
-
-      for (const method of verificationMethods) {
-        try {
-          console.log(`🔄 Probando ${method.description} (${method.type})...`);
-          
-          const result = await supabase.auth.verifyOtp({
-            email: normalizedEmail,
-            token: fullCode,
-            type: method.type as any
-          });
-
-          console.log(`📊 Resultado ${method.type}:`, {
-            hasError: !!result.error,
-            hasUser: !!result.data?.user,
-            hasSession: !!result.data?.session,
-            errorMessage: result.error?.message,
-            errorCode: result.error?.status || result.error?.code,
-            userConfirmed: result.data?.user?.email_confirmed_at ? 'SÍ' : 'NO'
-          });
-
-          if (!result.error && result.data?.user) {
-            console.log(`✅ ¡Éxito con ${method.description}!`);
-            successResult = result;
-            break;
-          } else if (result.error) {
-            lastError = result.error;
-            console.log(`❌ ${method.description} falló:`, result.error.message);
-          }
-        } catch (methodError: any) {
-          console.error(`💥 Excepción en ${method.description}:`, {
-            message: methodError?.message,
-            name: methodError?.name,
-            stack: methodError?.stack?.split('\n')[0] // Solo primera línea del stack
-          });
-          lastError = methodError;
-        }
-      }
-
-      // Verificar si tuvimos éxito
-      if (!successResult) {
-        console.error('❌ Todos los métodos de verificación fallaron');
-        console.error('🔍 Último error registrado:', {
-          message: lastError?.message,
-          status: lastError?.status,
-          code: lastError?.code,
-          name: lastError?.name
-        });
-
-        // Crear mensaje de error más específico
-        let errorMessage = 'Código inválido o expirado';
+      if (!response.ok) {
+        console.error('❌ Error en verificación:', result);
         
-        if (lastError?.message) {
-          const msg = lastError.message.toLowerCase();
-          if (msg.includes('expired') || msg.includes('expirado') || msg.includes('invalid')) {
-            errorMessage = 'El código ha expirado o es inválido. Solicita uno nuevo.';
-            // Auto-solicitar nuevo código si está expirado
-            setTimeout(() => {
-              if (!resendLoading && timeLeft <= 0) {
-                console.log('🔄 Solicitando automáticamente un nuevo código...');
-                handleResendCode();
-              }
-            }, 2000);
-          } else if (msg.includes('incorrect') || msg.includes('incorrecto')) {
-            errorMessage = 'Código incorrecto. Verifica los 6 dígitos.';
-          } else if (msg.includes('too many') || msg.includes('demasiados')) {
-            errorMessage = 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
-          } else if (msg.includes('not found') || msg.includes('no encontrado')) {
-            errorMessage = 'No se encontró un código pendiente. Solicita uno nuevo.';
-          } else if (msg.includes('already confirmed') || msg.includes('ya confirmado')) {
-            errorMessage = 'Esta cuenta ya está verificada. Intenta iniciar sesión.';
-          } else {
-            errorMessage = lastError.message;
-          }
+        // Manejar errores específicos
+        if (result.expired) {
+          onError('El código ha expirado. Solicita uno nuevo.');
+          // Auto-solicitar nuevo código si está expirado
+          setTimeout(() => {
+            if (!resendLoading && timeLeft <= 0) {
+              console.log('🔄 Solicitando automáticamente un nuevo código...');
+              handleResendCode();
+            }
+          }, 2000);
+          return;
         }
-        
-        throw new Error(errorMessage);
+
+        if (result.invalid) {
+          onError('Código incorrecto. Verifica los 6 dígitos.');
+          // Limpiar el código en caso de error
+          setCode(['', '', '', '', '', '']);
+          inputRefs.current[0]?.focus();
+          return;
+        }
+
+        if (result.tooManyAttempts) {
+          onError('Demasiados intentos. Espera unos minutos e intenta de nuevo.');
+          return;
+        }
+
+        throw new Error(result.error || 'Error verificando código');
       }
 
-      // Verificar que tengamos datos de usuario
-      if (!successResult.data?.user) {
-        console.error('❌ Verificación exitosa pero sin datos de usuario');
-        throw new Error('Verificación exitosa pero no se recibieron datos del usuario');
-      }
-
-      // Log de éxito detallado
-      console.log('🎉 Verificación completada exitosamente:');
-      console.log('👤 Usuario ID:', successResult.data.user.id);
-      console.log('📧 Email:', successResult.data.user.email);
-      console.log('✅ Email confirmado:', successResult.data.user.email_confirmed_at || 'AHORA');
-      console.log('🏷️ Metadata:', successResult.data.user.user_metadata);
-      console.log('🎫 Sesión:', successResult.data.session ? 'ACTIVA' : 'NO CREADA');
-      
-      // Verificar que el email coincida
-      if (successResult.data.user.email !== normalizedEmail) {
-        console.warn('⚠️ El email del usuario no coincide con el proporcionado');
-        console.warn('   Esperado:', normalizedEmail);
-        console.warn('   Recibido:', successResult.data.user.email);
-      }
+      console.log('✅ Verificación exitosa:', result);
+      console.log('👤 Usuario ID:', result.user.id);
+      console.log('📧 Email confirmado:', result.user.emailConfirmed);
       
       onSuccess();
       
     } catch (error: any) {
-      console.error('💥 Error crítico en el proceso de verificación:');
-      console.error('🔍 Tipo de error:', typeof error);
-      console.error('🏷️ Constructor:', error?.constructor?.name);
-      console.error('📝 Mensaje:', error?.message || 'Sin mensaje');
-      console.error('📊 Código:', error?.code || error?.status || 'Sin código');
-      console.error('🔧 Stack (primeras 3 líneas):', error?.stack?.split('\n').slice(0, 3).join('\n') || 'Sin stack trace');
-      console.error('🗂️ Error completo:', error);
+      console.error('💥 Error en verificación:', error);
       
       const errorMessage = error?.message || 'Error desconocido al verificar el código';
       onError(errorMessage);
@@ -271,65 +194,43 @@ export default function EmailVerificationForm({
       console.log('🔄 Solicitando nuevo código OTP...');
       console.log('📧 Email:', email);
       
-      // Limpiar sesión antes de reenviar
-      try {
-        await supabase.auth.signOut();
-        console.log('🧹 Sesión limpiada antes del reenvío');
-      } catch (signOutError) {
-        console.log('⚠️ No se pudo limpiar sesión antes del reenvío');
-      }
-
-      // Intentar diferentes métodos de reenvío
-      let resendResult;
-      
-      try {
-        // Primero intentar reenvío tipo signup
-        resendResult = await supabase.auth.resend({
-          type: 'signup',
+      // Usar la nueva API de envío
+      const response = await fetch('/api/auth/send-verification-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           email: email.trim().toLowerCase()
-        });
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Error reenviando código:', result);
         
-        console.log('📊 Resultado reenvío signup:', {
-          hasError: !!resendResult.error,
-          errorMessage: resendResult.error?.message
-        });
-        
-      } catch (signupResendError: any) {
-        console.log('❌ Error en reenvío signup:', signupResendError.message);
-        resendResult = { error: signupResendError };
-      }
-      
-      // Si signup falla, intentar con email_change
-      if (resendResult.error) {
-        try {
-          console.log('🔄 Intentando reenvío con tipo email_change...');
-          const emailResendResult = await supabase.auth.resend({
-            type: 'email_change',
-            email: email.trim().toLowerCase()
-          });
-          
-          console.log('📊 Resultado reenvío email_change:', {
-            hasError: !!emailResendResult.error,
-            errorMessage: emailResendResult.error?.message
-          });
-          
-          if (!emailResendResult.error) {
-            resendResult = emailResendResult;
-          }
-          
-        } catch (emailResendError: any) {
-          console.log('❌ Error en reenvío email_change:', emailResendError.message);
+        // Manejar errores específicos
+        if (result.rateLimited) {
+          throw new Error('Demasiados intentos. Espera unos minutos antes de solicitar otro código.');
         }
+
+        if (result.otpDisabled) {
+          throw new Error('OTP no está habilitado. Contacta al administrador.');
+        }
+
+        if (result.emailNotAuthorized) {
+          throw new Error('Email no autorizado. Contacta al administrador.');
+        }
+
+        throw new Error(result.error || 'Error reenviando código');
       }
 
-      if (resendResult.error) {
-        console.error('❌ Error final en reenvío:', resendResult.error);
-        throw resendResult.error;
-      }
-
+      console.log('✅ Código reenviado exitosamente');
+      
       setVerificationMethod('otp');
       // Reiniciar timers con tiempo extendido
-      setTimeLeft(900); // 15 minutos en lugar de 10
+      setTimeLeft(900); // 15 minutos
       setCanResend(false);
       setResendCooldown(60); // 1 minuto de cooldown
       
@@ -337,23 +238,10 @@ export default function EmailVerificationForm({
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
       
-      console.log('✅ Código reenviado exitosamente');
-      
     } catch (error: any) {
       console.error('❌ Error reenviando código:', error);
-      let errorMessage = 'Error al reenviar el código';
       
-      if (error.message) {
-        const msg = error.message.toLowerCase();
-        if (msg.includes('rate limit') || msg.includes('too many')) {
-          errorMessage = 'Demasiados intentos. Espera unos minutos antes de solicitar otro código.';
-        } else if (msg.includes('invalid email')) {
-          errorMessage = 'Email inválido. Verifica la dirección de correo.';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
+      const errorMessage = error?.message || 'Error al reenviar el código';
       onError(errorMessage);
     } finally {
       setResendLoading(false);

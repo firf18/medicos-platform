@@ -115,7 +115,7 @@ export const VENEZUELAN_MEDICAL_BOARDS = [
 /**
  * Valida si un número de licencia médica es único en el sistema
  */
-export async function validateUniqueLicenseNumber(licenseNumber: string): Promise<{ isValid: boolean; error?: string }> {
+export async function validateUniqueLicenseNumber(_licenseNumber: string): Promise<{ isValid: boolean; error?: string }> {
   try {
     // TODO: Implementar validación con Supabase
     // const { data, error } = await supabase

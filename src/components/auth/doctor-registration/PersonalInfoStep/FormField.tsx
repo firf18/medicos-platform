@@ -23,6 +23,7 @@ interface FormFieldProps {
   showValidIndicator?: boolean;
   rightElement?: React.ReactNode;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  prefix?: string;
 }
 
 const FormField: React.FC<FormFieldProps> = ({
@@ -42,7 +43,8 @@ const FormField: React.FC<FormFieldProps> = ({
   isValid,
   showValidIndicator = true,
   rightElement,
-  onPaste
+  onPaste,
+  prefix
 }) => {
   return (
     <div className="space-y-2">
@@ -54,29 +56,68 @@ const FormField: React.FC<FormFieldProps> = ({
         {label} {isRequired && <span className="ml-1 text-red-500">*</span>}
       </Label>
       <div className="relative">
-        <Input
-          id={id}
-          type={type}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          onPaste={onPaste}
-          className={getFieldClassName(fieldName, { [fieldName]: fieldTouched }, hasError, isValid)}
-        />
-        
-        {/* Indicador de validación */}
-        {showValidIndicator && fieldTouched && isValid && !hasError && (
-          <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+        {prefix ? (
+          <div className="flex gap-2">
+            {/* Prefijo de país */}
+            <div className="flex-shrink-0">
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm font-medium">
+                {prefix}
+              </div>
+            </div>
+            {/* Campo de entrada */}
+            <div className="flex-1 relative">
+              <Input
+                id={id}
+                type={type}
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onBlur={onBlur}
+                onPaste={onPaste}
+                className={getFieldClassName(fieldName, { [fieldName]: fieldTouched }, hasError, isValid)}
+              />
+              
+              {/* Indicador de validación */}
+              {showValidIndicator && fieldTouched && isValid && !hasError && (
+                <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+              )}
+              
+              {/* Indicador de error */}
+              {showValidIndicator && fieldTouched && hasError && (
+                <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-red-500" />
+              )}
+              
+              {/* Elemento personalizado a la derecha */}
+              {rightElement}
+            </div>
+          </div>
+        ) : (
+          <>
+            <Input
+              id={id}
+              type={type}
+              placeholder={placeholder}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+              onPaste={onPaste}
+              className={getFieldClassName(fieldName, { [fieldName]: fieldTouched }, hasError, isValid)}
+            />
+            
+            {/* Indicador de validación */}
+            {showValidIndicator && fieldTouched && isValid && !hasError && (
+              <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+            )}
+            
+            {/* Indicador de error */}
+            {showValidIndicator && fieldTouched && hasError && (
+              <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-red-500" />
+            )}
+            
+            {/* Elemento personalizado a la derecha */}
+            {rightElement}
+          </>
         )}
-        
-        {/* Indicador de error */}
-        {showValidIndicator && fieldTouched && hasError && (
-          <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-red-500" />
-        )}
-        
-        {/* Elemento personalizado a la derecha */}
-        {rightElement}
       </div>
       {errorElement}
     </div>

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/providers/auth';
 import { createClient } from '@/lib/supabase/client';
@@ -9,7 +11,7 @@ import SearchResultsList from '@/components/search/SearchResultsList';
 import { useSearch } from '@/hooks/useSearch';
 import { Search, TrendingUp, Clock, Users } from 'lucide-react';
 
-export default function SearchPage() {
+function SearchPageContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
@@ -311,5 +313,18 @@ export default function SearchPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <Search className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
+        <p className="text-gray-600">Cargando búsqueda...</p>
+      </div>
+    </div>}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

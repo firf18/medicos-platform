@@ -11,11 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SimplePhoneInput } from '@/components/ui/simple-phone-input';
 import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { EmailVerification } from '@/components/auth/EmailVerification';
 import {
   PersonalInfoFormData,
   PersonalInfoFormErrors,
   FieldTouchedState,
-  EmailValidationResult
+  EmailValidationResult,
+  PhoneValidationResult
 } from '../../types/personal-info.types';
 
 interface ContactFieldsSectionProps {
@@ -23,9 +25,13 @@ interface ContactFieldsSectionProps {
   errors: Pick<PersonalInfoFormErrors, 'email' | 'phone'>;
   fieldTouched: Pick<FieldTouchedState, 'email' | 'phone'>;
   emailValidation: EmailValidationResult | null;
+  phoneValidation: PhoneValidationResult | null;
   isCheckingEmail: boolean;
+  isCheckingPhone: boolean;
   onFieldChange: (field: keyof PersonalInfoFormData, value: string) => void;
   onFieldTouch: (field: keyof PersonalInfoFormData) => void;
+  onEmailVerified?: () => void;
+  onEmailVerificationError?: (error: string) => void;
 }
 
 export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
@@ -33,9 +39,13 @@ export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
   errors,
   fieldTouched,
   emailValidation,
+  phoneValidation,
   isCheckingEmail,
+  isCheckingPhone,
   onFieldChange,
-  onFieldTouch
+  onFieldTouch,
+  onEmailVerified,
+  onEmailVerificationError
 }) => {
   const getEmailFieldClassName = (baseClassName = '') => {
     let className = baseClassName;
@@ -56,8 +66,10 @@ export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
     
     if (errors.phone) {
       className += ' border-red-500 focus:border-red-500';
-    } else if (fieldTouched.phone && formData.phone) {
+    } else if (phoneValidation?.isAvailable === true && !errors.phone) {
       className += ' border-green-500 focus:border-green-500';
+    } else if (phoneValidation?.isAvailable === false) {
+      className += ' border-red-500 focus:border-red-500';
     }
     
     return className;
@@ -82,12 +94,20 @@ export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
   };
 
   const getPhoneStatusIcon = () => {
-    if (errors.phone && fieldTouched.phone) {
-      return <XCircle className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />;
+    if (isCheckingPhone) {
+      // No mostrar loader; mantener limpio mientras verifica
+      return null;
     }
-    if (fieldTouched.phone && formData.phone && !errors.phone) {
+    
+    if (phoneValidation?.isAvailable === true && !errors.phone) {
       return <CheckCircle className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />;
     }
+    
+    // Invalid format or not available
+    if (errors.phone || phoneValidation?.isAvailable === false) {
+      return <XCircle className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />;
+    }
+    
     return null;
   };
 
@@ -118,6 +138,39 @@ export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
       return {
         variant: 'destructive' as const,
         message: errors.email
+      };
+    }
+    
+    return null;
+  };
+
+  const getPhoneStatusMessage = () => {
+    if (isCheckingPhone) {
+      return {
+        variant: 'default' as const,
+        message: 'Verificando disponibilidad del número de teléfono...'
+      };
+    }
+    
+    if (phoneValidation?.isAvailable === true) {
+      return {
+        variant: 'default' as const,
+        message: 'Número de teléfono disponible',
+        className: 'border-green-200 bg-green-50 text-green-800'
+      };
+    }
+    
+    if (phoneValidation?.isAvailable === false) {
+      return {
+        variant: 'destructive' as const,
+        message: phoneValidation.error || 'Este número de teléfono ya está registrado'
+      };
+    }
+    
+    if (errors.phone && fieldTouched.phone) {
+      return {
+        variant: 'destructive' as const,
+        message: errors.phone
       };
     }
     
@@ -166,6 +219,15 @@ export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
             }
             return null;
           })()}
+
+          {/* Email Verification */}
+          {emailValidation?.isAvailable === true && formData.email && (
+            <EmailVerification
+              email={formData.email}
+              onVerificationComplete={onEmailVerified}
+              onVerificationError={onEmailVerificationError}
+            />
+          )}
         </div>
 
         {/* Phone */}
@@ -184,12 +246,21 @@ export const ContactFieldsSection: React.FC<ContactFieldsSectionProps> = ({
             {getPhoneStatusIcon()}
           </div>
           
-          {errors.phone && fieldTouched.phone && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{errors.phone}</AlertDescription>
-            </Alert>
-          )}
+          {(() => {
+            const statusMessage = getPhoneStatusMessage();
+            if (statusMessage) {
+              return (
+                <Alert 
+                  variant={statusMessage.variant}
+                  className={statusMessage.className}
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{statusMessage.message}</AlertDescription>
+                </Alert>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 

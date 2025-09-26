@@ -174,17 +174,21 @@ export const DocumentInfoSection: React.FC<DocumentInfoSectionProps> = ({
           </Alert>
         )}
 
-        {/* Name mismatch warning */}
+        {/* Name mismatch warning - BLOQUEA EL AVANCE */}
         {verificationResult?.isValid && verificationResult.nameMatch && !verificationResult.nameMatch.matches && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="space-y-2">
-                <div className="font-medium">⚠️ Los nombres no coinciden</div>
-                <div>{verificationResult.nameMatch.message}</div>
-                <div className="text-sm">
-                  Por favor, regrese al paso anterior y corrija los nombres para que coincidan exactamente 
-                  con el registro oficial.
+          <Alert variant="destructive" className="border-red-500 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <div className="space-y-3">
+                <div className="font-bold text-lg">🚫 NOMBRES NO COINCIDEN EXACTAMENTE</div>
+                <div className="font-medium">{verificationResult.nameMatch.message}</div>
+                <div className="text-sm bg-red-100 p-3 rounded border-l-4 border-red-500">
+                  <strong>ACCIÓN REQUERIDA:</strong> Debe regresar al paso anterior (Información Personal) 
+                  y corregir los nombres para que sean idénticos al registro oficial de SACS. 
+                  Solo cuando coincidan exactamente podrá continuar.
+                </div>
+                <div className="text-xs text-red-600">
+                  Confianza de coincidencia: {Math.round((verificationResult.nameMatch.confidence || 0) * 100)}%
                 </div>
               </div>
             </AlertDescription>

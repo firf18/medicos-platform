@@ -6,10 +6,12 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { DoctorRegistrationData } from '@/types/medical/specialties';
+import { useCSRFToken } from '@/hooks/useCSRFToken';
 import {
   PersonalInfoFormData,
   PersonalInfoFormErrors,
   EmailValidationResult,
+  PhoneValidationResult,
   PasswordValidationResult,
   FieldTouchedState,
   PasswordVisibilityState
@@ -17,8 +19,10 @@ import {
 import {
   validatePersonalInfoForm,
   validateEmailFormat,
+  validatePhone,
   validatePassword,
   checkEmailAvailability,
+  checkPhoneAvailability,
   sanitizeName,
   formatPhoneDisplay
 } from '../utils/personal-info-validation';
@@ -36,6 +40,9 @@ export const usePersonalInfoForm = ({
   onStepComplete,
   onStepError
 }: UsePersonalInfoFormProps) => {
+  // CSRF token
+  const { token: csrfToken, isLoading: csrfLoading, error: csrfError } = useCSRFToken();
+
   // Form state
   const [formData, setFormData] = useState<PersonalInfoFormData>({
     firstName: initialData.firstName || '',
@@ -67,12 +74,18 @@ export const usePersonalInfoForm = ({
   const [emailValidation, setEmailValidation] = useState<EmailValidationResult | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
+  // Phone availability state
+  const [phoneValidation, setPhoneValidation] = useState<PhoneValidationResult | null>(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+
   // Password strength state
   const [passwordValidation, setPasswordValidation] = useState<PasswordValidationResult | null>(null);
 
   // Refs for managing async operations
   const emailCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const phoneCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastEmailCheckedRef = useRef<string>('');
+  const lastPhoneCheckedRef = useRef<string>('');
   const lastInitialDataRef = useRef<DoctorRegistrationData | null>(null);
   const rehydratedUIRef = useRef<boolean>(false);
 
@@ -90,13 +103,17 @@ export const usePersonalInfoForm = ({
       switch (field) {
         case 'firstName':
         case 'lastName': {
-          // Aceptar solo letras (incluye acentos y Ñ) y espacios; forzar MAYÚSCULAS
-          const lettersOnly = value
-            .toUpperCase()
-            .replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-          newData[field] = lettersOnly;
+          // Siempre convertir a mayúsculas y aplicar transformaciones necesarias
+          let processedValue = value.toUpperCase();
+          
+          // Solo aplicar filtrado si hay caracteres no válidos o múltiples espacios
+          if (/[^A-ZÁÉÍÓÚÑ\s]/.test(processedValue) || /\s{2,}/.test(processedValue)) {
+            processedValue = processedValue
+              .replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '') // Permite letras, acentos y espacios
+              .replace(/\s+/g, ' '); // Normaliza múltiples espacios a uno solo
+          }
+          
+          newData[field] = processedValue;
           break;
         }
         case 'email':
@@ -116,7 +133,7 @@ export const usePersonalInfoForm = ({
         if (field === 'firstName' || field === 'lastName') {
           const onlyLetters = /^[A-ZÁÉÍÓÚÑ\s]{2,}$/;
           if (newData[field] && !onlyLetters.test(newData[field])) {
-            next[field] = 'Solo letras y mínimo 2 caracteres';
+            next[field] = 'Solo letras y espacios, mínimo 2 caracteres';
           } else {
             delete next[field];
           }
@@ -223,7 +240,7 @@ export const usePersonalInfoForm = ({
     // Debounce the API call
     emailCheckTimeoutRef.current = setTimeout(async () => {
       try {
-        const isAvailable = await checkEmailAvailability(email);
+        const isAvailable = await checkEmailAvailability(email, csrfToken);
         lastEmailCheckedRef.current = email;
         
         setEmailValidation({
@@ -240,6 +257,58 @@ export const usePersonalInfoForm = ({
         });
       } finally {
         setIsCheckingEmail(false);
+      }
+    }, 1000); // 1 second delay
+  }, []);
+
+  /**
+   * Debounced phone availability check
+   */
+  const checkPhoneAvailabilityDebounced = useCallback(async (phone: string) => {
+    // Clear existing timeout
+    if (phoneCheckTimeoutRef.current) {
+      clearTimeout(phoneCheckTimeoutRef.current);
+    }
+
+    // Skip if same phone already checked
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone === lastPhoneCheckedRef.current) {
+      return;
+    }
+
+    // Validate phone format first
+    const formatValidation = validatePhone(phone);
+    if (!formatValidation.isValid) {
+      setPhoneValidation(formatValidation);
+      return;
+    }
+
+    // Set checking state
+    setIsCheckingPhone(true);
+    setPhoneValidation({ ...formatValidation, isAvailable: null });
+
+    // Debounce the API call
+    phoneCheckTimeoutRef.current = setTimeout(async () => {
+      try {
+        const isAvailable = await checkPhoneAvailability(phone, csrfToken);
+        lastPhoneCheckedRef.current = normalizedPhone;
+        
+        setPhoneValidation({
+          isValid: formatValidation.isValid && isAvailable,
+          formatted: formatValidation.formatted,
+          isAvailable,
+          error: !isAvailable ? 'Este número de teléfono ya está registrado' : undefined
+        });
+      } catch (error) {
+        console.error('Phone availability check failed:', error);
+        setPhoneValidation({
+          isValid: formatValidation.isValid,
+          formatted: formatValidation.formatted,
+          isAvailable: null,
+          error: 'Error verificando disponibilidad del teléfono'
+        });
+      } finally {
+        setIsCheckingPhone(false);
       }
     }, 1000); // 1 second delay
   }, []);
@@ -265,6 +334,12 @@ export const usePersonalInfoForm = ({
       return false;
     }
 
+    // Check phone availability if not already checked
+    if (formData.phone && !phoneValidation?.isAvailable) {
+      onStepError('personal_info', 'Por favor verifique la disponibilidad del número de teléfono');
+      return false;
+    }
+
     if (!validation.isValid) {
       const firstError = Object.values(validation.errors)[0];
       onStepError('personal_info', firstError || 'Errores en el formulario');
@@ -277,8 +352,14 @@ export const usePersonalInfoForm = ({
       return false;
     }
 
+    // Check phone availability
+    if (phoneValidation && !phoneValidation.isAvailable) {
+      onStepError('personal_info', 'El número de teléfono no está disponible');
+      return false;
+    }
+
     return true;
-  }, [formData, emailValidation, onStepError]);
+  }, [formData, emailValidation, phoneValidation, onStepError]);
 
   /**
    * Submit form
@@ -319,6 +400,13 @@ export const usePersonalInfoForm = ({
       checkEmailAvailabilityDebounced(formData.email);
     }
   }, [formData.email, fieldTouched.email, checkEmailAvailabilityDebounced]);
+
+  // Auto-validate phone when it changes
+  useEffect(() => {
+    if (formData.phone && fieldTouched.phone) {
+      checkPhoneAvailabilityDebounced(formData.phone);
+    }
+  }, [formData.phone, fieldTouched.phone, checkPhoneAvailabilityDebounced]);
 
   // Auto-validate password when it changes
   useEffect(() => {
@@ -380,7 +468,7 @@ export const usePersonalInfoForm = ({
     if (formData.email) {
       const formatValidation = validateEmailFormat(formData.email);
       if (formatValidation.isValid) {
-        checkEmailAvailability(formData.email)
+        checkEmailAvailability(formData.email, csrfToken)
           .then(isAvailable => setEmailValidation({ ...formatValidation, isAvailable }))
           .catch(() => setEmailValidation({ ...formatValidation, isAvailable: null }));
       } else {
@@ -404,6 +492,9 @@ export const usePersonalInfoForm = ({
       if (emailCheckTimeoutRef.current) {
         clearTimeout(emailCheckTimeoutRef.current);
       }
+      if (phoneCheckTimeoutRef.current) {
+        clearTimeout(phoneCheckTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -416,8 +507,10 @@ export const usePersonalInfoForm = ({
     
     // Validation state
     emailValidation,
+    phoneValidation,
     passwordValidation,
     isCheckingEmail,
+    isCheckingPhone,
     
     // Actions
     handleInputChange,
@@ -430,7 +523,9 @@ export const usePersonalInfoForm = ({
     isFormValid: Object.keys(errors).length === 0,
     canSubmit: Object.keys(errors).length === 0 && 
                !isCheckingEmail && 
-               emailValidation?.isAvailable === true,
+               !isCheckingPhone &&
+               emailValidation?.isAvailable === true &&
+               phoneValidation?.isAvailable === true,
     
     // Field helpers
     getFieldError: (field: keyof PersonalInfoFormData) => errors[field] || null,

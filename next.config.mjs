@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Configuración para Tailwind CSS
+  transpilePackages: [],
+  
+  // Configuración para desarrollo
+  reactStrictMode: true,
+  
   // Configuración para Vercel
   experimental: {
     optimizePackageImports: ['@radix-ui/react-dialog', 'lucide-react'],
@@ -14,6 +20,7 @@ const nextConfig = {
   
   // Configuración de imágenes
   images: {
+    domains: ['localhost'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -31,31 +38,6 @@ const nextConfig = {
         net: false,
         tls: false,
       };
-      
-      // Configuración adicional para manejar errores de chunk
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          default: false,
-          vendors: false,
-          // Crear un chunk para los componentes de autenticación
-          auth: {
-            name: 'auth',
-            chunks: 'all',
-            test: /[\\/]src[\\/](components|providers)[\\/](auth|providers)[\\/]/,
-            priority: 20,
-            enforce: true,
-          },
-          // Crear un chunk para las librerías principales
-          vendor: {
-            name: 'vendors',
-            chunks: 'all',
-            test: /[\\/]node_modules[\\/]/,
-            priority: 10,
-            enforce: true,
-          },
-        },
-      };
     }
     return config;
   },
@@ -67,7 +49,7 @@ const nextConfig = {
   
   // Configuración de TypeScript
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   
   // Configuración para manejar mejor los errores de carga de chunks

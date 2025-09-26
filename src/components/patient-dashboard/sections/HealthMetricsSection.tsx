@@ -217,10 +217,10 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
                 </div>
                 <div className="flex items-center space-x-1">
                   {summary.trend === 'up' && (
-                    <ArrowTrendingUpIcon className="w-4 h-4 text-red-500" />
+                    <ArrowArrowTrendingUpIcon className="w-4 h-4 text-red-500" />
                   )}
                   {summary.trend === 'down' && (
-                    <ArrowTrendingDownIcon className="w-4 h-4 text-green-500" />
+                    <ArrowArrowTrendingDownIcon className="w-4 h-4 text-green-500" />
                   )}
                   {summary.change_percentage > 0 && (
                     <span className={`text-xs ${

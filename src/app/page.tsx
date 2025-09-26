@@ -1,18 +1,16 @@
 import { Navbar } from '@/components/landing/Navbar';
+import { Footer } from '@/components/landing/Footer';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';
 import { CTASection } from '@/components/landing/CTASection';
-import { Footer } from '@/components/landing/Footer';
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-white">
       <Navbar />
-      <main>
-        <HeroSection />
-        <FeaturesSection />
-        <CTASection />
-      </main>
+      <HeroSection />
+      <FeaturesSection />
+      <CTASection />
       <Footer />
     </div>
   );

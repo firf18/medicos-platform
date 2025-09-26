@@ -1,5 +1,8 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
+import { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +10,7 @@ import { CheckCircle, Mail, Shield, Calendar, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-export default function DoctorRegistrationSuccessPage() {
+function DoctorRegistrationSuccessContent() {
   const searchParams = useSearchParams();
   const status = searchParams.get('status');
   const message = searchParams.get('message');
@@ -216,5 +219,18 @@ export default function DoctorRegistrationSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DoctorRegistrationSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Cargando...</p>
+      </div>
+    </div>}>
+      <DoctorRegistrationSuccessContent />
+    </Suspense>
   );
 }

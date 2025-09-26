@@ -79,7 +79,14 @@ export default function IdentityVerificationStep({
       onStepComplete('identity_verification');
     },
     onVerificationError: (error) => {
-      onStepError('identity_verification', error);
+      // 🔧 CORRECCIÓN: Extraer mensaje de error si es un objeto
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : typeof error === 'string' 
+          ? error 
+          : 'Error de verificación desconocido';
+      
+      onStepError('identity_verification', errorMessage);
     },
     onStatusChange: (status, data) => {
       console.log(`🔄 Estado de verificación cambió a: ${status}`, data);

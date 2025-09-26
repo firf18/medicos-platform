@@ -66,7 +66,7 @@
   }
 }
 
-/* Estilos para el modo oscuro */
+/* Estilos para el modo oscuro - variables adicionales */
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
@@ -94,76 +94,56 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.8);
 }
- 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
- 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
- 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
- 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
- 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
- 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
- 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
- 
-    --radius: 0.5rem;
-  }
- 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
- 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
- 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
- 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
- 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
- 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
- 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
- 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
- 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-  }
+/* Estilos para iconos - asegurar consistencia */
+.icon-consistent {
+  @apply fill-current stroke-current;
 }
- 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+
+/* Estilos para componentes de especialidades */
+.specialty-icon {
+  @apply transition-colors duration-200;
+}
+
+.specialty-card {
+  @apply transition-all duration-200;
+}
+
+/* Estilos para texto semi-transparente - ocultar artefactos */
+.text-artifact {
+  @apply hidden;
+}
+
+/* Estilos específicos para botones de registro médico */
+.registration-button {
+  @apply relative overflow-hidden;
+  @apply transform transition-all duration-200 ease-in-out;
+  @apply hover:scale-105 active:scale-95;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.registration-button:not(:disabled) {
+  @apply cursor-pointer;
+}
+
+.registration-button:disabled {
+  @apply cursor-not-allowed opacity-50;
+  @apply hover:scale-100 active:scale-100;
+}
+
+/* Asegurar que los efectos hover funcionen correctamente */
+.registration-button:hover:not(:disabled) {
+  @apply shadow-xl;
+}
+
+/* Prevenir que elementos superpuestos bloqueen el botón */
+.registration-button::before {
+  content: '';
+  @apply absolute inset-0 z-10;
+  @apply pointer-events-none;
+}
+
+/* Asegurar que el botón sea clickeable */
+.registration-button * {
+  @apply pointer-events-auto;
 }

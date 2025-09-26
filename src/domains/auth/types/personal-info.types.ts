@@ -34,6 +34,7 @@ export interface PasswordValidationResult {
 export interface PhoneValidationResult {
   isValid: boolean;
   formatted: string;
+  isAvailable?: boolean | null;
   error?: string;
 }
 

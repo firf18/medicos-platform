@@ -1,5 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { Database } from '@/lib/database.types'
+import { Database } from '@/types/supabase'
 import Logger from '@/lib/logger'
 
 const logger = new Logger({ 
@@ -25,7 +25,7 @@ const clearCorruptedCookies = () => {
             cleanedLocalStorage++;
             logger.debug(`Removed corrupted localStorage: ${key}`);
           }
-        } catch (e) {
+        } catch {
           localStorage.removeItem(key);
           cleanedLocalStorage++;
           logger.debug(`Removed invalid localStorage: ${key}`);
@@ -46,7 +46,7 @@ const clearCorruptedCookies = () => {
             cleanedCookies++;
             logger.debug(`Removed corrupted cookie: ${name}`);
           }
-        } catch (e) {
+        } catch {
           document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
           cleanedCookies++;
           logger.debug(`Removed invalid cookie: ${name}`);

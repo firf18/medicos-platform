@@ -133,10 +133,14 @@ class Logger {
     
     switch (entry.level) {
       case 'debug':
-        if (entry.metadata && Object.keys(entry.metadata).length > 0) {
-          console.debug(logMessage, entry.metadata);
-        } else {
-          console.debug(logMessage);
+        // Solo mostrar logs de debug en desarrollo y para categorías específicas
+        if (process.env.NODE_ENV === 'development' && 
+            (entry.category === 'security' || entry.category === 'error' || entry.category === 'auth')) {
+          if (entry.metadata && Object.keys(entry.metadata).length > 0) {
+            console.debug(logMessage, entry.metadata);
+          } else {
+            console.debug(logMessage);
+          }
         }
         break;
       case 'info':

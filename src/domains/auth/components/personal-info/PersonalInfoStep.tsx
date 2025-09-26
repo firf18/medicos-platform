@@ -30,8 +30,10 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     fieldTouched,
     passwordVisibility,
     emailValidation,
+    phoneValidation,
     passwordValidation,
     isCheckingEmail,
+    isCheckingPhone,
     handleInputChange,
     markFieldTouched,
     togglePasswordVisibility,
@@ -48,12 +50,15 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     onStepError
   });
 
+  const [emailVerified, setEmailVerified] = React.useState(false);
+
   const getOverallValidationStatus = () => {
     const hasFormErrors = Object.keys(errors).length > 0;
     const emailNotAvailable = emailValidation?.isAvailable === false;
-    const stillChecking = isCheckingEmail;
+    const phoneNotAvailable = phoneValidation?.isAvailable === false;
+    const stillChecking = isCheckingEmail || isCheckingPhone;
 
-    if (hasFormErrors || emailNotAvailable) {
+    if (hasFormErrors || emailNotAvailable || phoneNotAvailable) {
       return { isValid: false, type: 'error' as const };
     }
 
@@ -68,7 +73,9 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
                           formData.password && 
                           formData.confirmPassword &&
                           emailValidation?.isAvailable === true &&
-                          passwordValidation?.isValid;
+                          phoneValidation?.isAvailable === true &&
+                          passwordValidation?.isValid &&
+                          emailVerified;
 
     if (allFieldsValid) {
       return { isValid: true, type: 'success' as const };
@@ -77,93 +84,88 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     return { isValid: false, type: 'incomplete' as const };
   };
 
+  const handleEmailVerified = React.useCallback(() => {
+    setEmailVerified(true);
+  }, []);
+
+  const handleEmailVerificationError = React.useCallback((error: string) => {
+    // Only log non-rate-limiting errors
+    if (!error.includes('Demasiados intentos') && !error.includes('Rate limit')) {
+      console.error('Email verification error:', error);
+    }
+    
+    // For rate limiting errors, the EmailVerification component handles the UI
+    // We just need to ensure the step doesn't complete
+    if (error.includes('Demasiados intentos') || error.includes('Rate limit')) {
+      setEmailVerified(false);
+    } else {
+      // For other errors, we could show a toast or other notification
+      console.warn('Email verification failed:', error);
+      setEmailVerified(false);
+    }
+  }, []);
+
   const validationStatus = getOverallValidationStatus();
 
-  // Auto-complete step when form is valid (without submitting)
-  // Guard against repeated calls by tracking last completion state
-  const lastCompletedRef = React.useRef<boolean>(false);
-  React.useEffect(() => {
-    const ready = canSubmit && validationStatus.isValid && validationStatus.type === 'success';
-    if (ready && !lastCompletedRef.current) {
-      lastCompletedRef.current = true;
-      onStepComplete('personal_info');
-    }
-    if (!ready && lastCompletedRef.current) {
-      // reset when conditions are not met anymore
-      lastCompletedRef.current = false;
-    }
-  }, [canSubmit, validationStatus.isValid, validationStatus.type, onStepComplete]);
+  // Removed auto-complete logic - step completion should only happen when user clicks "Siguiente"
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Información Personal
-        </h2>
-        <p className="text-gray-600">
-          Complete su información personal para crear su cuenta médica segura
-        </p>
+    <div className="space-y-8">
+      {/* Header mejorado */}
+      <div className="text-center space-y-4">
+        <div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            Información Personal
+          </h2>
+          <p className="text-gray-600 text-lg">
+            Complete su información personal para crear su cuenta médica segura
+          </p>
+        </div>
       </div>
 
-      {/* Overall Status Alert */}
-      {validationStatus.type === 'success' && (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            <strong>Información Completa:</strong> Todos los campos han sido validados correctamente.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Overall Status Alert mejorado */}
 
-      {validationStatus.type === 'checking' && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Verificando:</strong> Validando disponibilidad del correo electrónico...
-          </AlertDescription>
-        </Alert>
-      )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-8">
-            {/* Name Fields Section */}
-            <NameFieldsSection
-              formData={formData}
-              errors={errors}
-              fieldTouched={fieldTouched}
-              onFieldChange={handleInputChange}
-              onFieldTouch={markFieldTouched}
-            />
+      {/* Formulario unificado sin divisiones */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+        <div className="space-y-6">
+          {/* Name Fields Section */}
+          <NameFieldsSection
+            formData={formData}
+            errors={errors}
+            fieldTouched={fieldTouched}
+            onFieldChange={handleInputChange}
+            onFieldTouch={markFieldTouched}
+          />
 
-            {/* Contact Fields Section */}
-            <ContactFieldsSection
-              formData={formData}
-              errors={errors}
-              fieldTouched={fieldTouched}
-              emailValidation={emailValidation}
-              isCheckingEmail={isCheckingEmail}
-              onFieldChange={handleInputChange}
-              onFieldTouch={markFieldTouched}
-            />
+          {/* Contact Fields Section */}
+          <ContactFieldsSection
+            formData={formData}
+            errors={errors}
+            fieldTouched={fieldTouched}
+            emailValidation={emailValidation}
+            phoneValidation={phoneValidation}
+            isCheckingEmail={isCheckingEmail}
+            isCheckingPhone={isCheckingPhone}
+            onFieldChange={handleInputChange}
+            onFieldTouch={markFieldTouched}
+            onEmailVerified={handleEmailVerified}
+            onEmailVerificationError={handleEmailVerificationError}
+          />
 
-            {/* Password Fields Section */}
-            <PasswordFieldsSection
-              formData={formData}
-              errors={errors}
-              fieldTouched={fieldTouched}
-              passwordVisibility={passwordVisibility}
-              passwordValidation={passwordValidation}
-              onFieldChange={handleInputChange}
-              onFieldTouch={markFieldTouched}
-              onTogglePasswordVisibility={togglePasswordVisibility}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Errors globales removidos por solicitud */}
+          {/* Password Fields Section */}
+          <PasswordFieldsSection
+            formData={formData}
+            errors={errors}
+            fieldTouched={fieldTouched}
+            passwordVisibility={passwordVisibility}
+            passwordValidation={passwordValidation}
+            onFieldChange={handleInputChange}
+            onFieldTouch={markFieldTouched}
+            onTogglePasswordVisibility={togglePasswordVisibility}
+          />
+        </div>
+      </div>
     </div>
   );
 };

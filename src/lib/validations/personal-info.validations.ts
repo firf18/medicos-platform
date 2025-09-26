@@ -55,8 +55,9 @@ export const personalInfoSchema = z.object({
 /**
  * Valida si un email es único en el sistema
  */
-export async function validateUniqueEmail(email: string): Promise<{ isValid: boolean; error?: string }> {
+export async function validateUniqueEmail(_email: string): Promise<{ isValid: boolean; error?: string }> {
   try {
+    // Email validation is handled by Supabase
     // TODO: Implementar validación con Supabase
     // const { data, error } = await supabase
     //   .from('profiles')

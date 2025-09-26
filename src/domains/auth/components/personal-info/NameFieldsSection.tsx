@@ -32,12 +32,19 @@ export const NameFieldsSection: React.FC<NameFieldsSectionProps> = ({
   onFieldTouch
 }) => {
   // Normaliza a MAYÚSCULAS y solo letras/espacios (incluye acentos y Ñ)
+  // Permite espacios para nombres compuestos como "María José"
   const toUpperLettersOnly = (value: string): string => {
-    return value
-      .toUpperCase()
-      .replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Siempre convertir a mayúsculas y aplicar transformaciones necesarias
+    let processedValue = value.toUpperCase();
+    
+    // Solo aplicar filtrado si hay caracteres no válidos o múltiples espacios
+    if (/[^A-ZÁÉÍÓÚÑ\s]/.test(processedValue) || /\s{2,}/.test(processedValue)) {
+      processedValue = processedValue
+        .replace(/[^A-ZÁÉÍÓÚÑ\s]/g, '') // Permite letras, acentos y espacios
+        .replace(/\s+/g, ' '); // Normaliza múltiples espacios a uno solo
+    }
+    
+    return processedValue;
   };
   const getFieldClassName = (field: 'firstName' | 'lastName', baseClassName = '') => {
     let className = baseClassName;
@@ -57,6 +64,7 @@ export const NameFieldsSection: React.FC<NameFieldsSectionProps> = ({
         <User className="h-5 w-5 text-primary" />
         <h3 className="text-lg font-semibold">Información Personal</h3>
       </div>
+      
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* First Name */}
@@ -77,7 +85,7 @@ export const NameFieldsSection: React.FC<NameFieldsSectionProps> = ({
                 onFieldTouch('firstName');
               }}
               onBlur={() => onFieldTouch('firstName')}
-              placeholder="Ingrese su nombre"
+              placeholder="Ej: María José, Juan Carlos"
               className={getFieldClassName('firstName', 'pr-10')}
               maxLength={50}
             />
@@ -110,7 +118,7 @@ export const NameFieldsSection: React.FC<NameFieldsSectionProps> = ({
                 onFieldTouch('lastName');
               }}
               onBlur={() => onFieldTouch('lastName')}
-              placeholder="Ingrese su apellido"
+              placeholder="Ej: González Pérez, Rodríguez López"
               className={getFieldClassName('lastName', 'pr-10')}
               maxLength={50}
             />

@@ -67,7 +67,7 @@ export const useRegistrationState = ({
     return progress || {
       currentStep: 'personal_info',
       completedSteps: [],
-      totalSteps: 6,
+      totalSteps: 4,
       percentage: 0,
       isComplete: false,
       errors: [],
@@ -105,10 +105,13 @@ export const useRegistrationState = ({
         lastSavedDataRef.current = data;
         lastSavedProgressRef.current = progressData;
         
-        logger.debug('registration', 'Auto-saved registration progress', {
-          step: progressData.currentStep,
-          percentage: progressData.percentage
-        });
+        // Solo loggear en desarrollo y para cambios significativos
+        if (process.env.NODE_ENV === 'development' && progressData.percentage > 0) {
+          logger.debug('registration', 'Auto-saved registration progress', {
+            step: progressData.currentStep,
+            percentage: progressData.percentage
+          });
+        }
       } catch (error) {
         logger.error('registration', 'Failed to auto-save progress', { error });
       }
@@ -178,9 +181,7 @@ export const useRegistrationState = ({
       'personal_info',
       'professional_info',
       'specialty_selection',
-      'license_verification',
-      'identity_verification',
-      'dashboard_configuration'
+      'identity_verification'
     ];
     
     const currentIndex = stepOrder.indexOf(currentStep);
@@ -199,9 +200,7 @@ export const useRegistrationState = ({
       'personal_info',
       'professional_info',
       'specialty_selection',
-      'license_verification',
-      'identity_verification',
-      'dashboard_configuration'
+      'identity_verification'
     ];
     
     const currentIndex = stepOrder.indexOf(currentStep);
@@ -250,7 +249,7 @@ export const useRegistrationState = ({
     setProgress({
       currentStep: 'personal_info',
       completedSteps: [],
-      totalSteps: 6,
+      totalSteps: 4,
       percentage: 0,
       isComplete: false,
       errors: [],

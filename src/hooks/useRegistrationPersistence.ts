@@ -31,6 +31,9 @@ const PAGE_UNLOAD_CLEAR = REGISTRATION_PERSISTENCE_CONFIG.cleanup.onPageUnload;
 // Función para verificar si los datos han expirado
 function isDataExpired(): boolean {
   try {
+    if (typeof window === 'undefined') {
+      return true;
+    }
     const timestamp = localStorage.getItem(SESSION_TIMESTAMP_KEY);
     if (!timestamp) return true;
     
@@ -48,11 +51,16 @@ function isDataExpired(): boolean {
 // Función para limpiar datos expirados
 function clearExpiredData(): void {
   try {
+    if (typeof window === 'undefined') {
+      return;
+    }
     if (isDataExpired()) {
       localStorage.removeItem(REGISTRATION_STORAGE_KEY);
       localStorage.removeItem(PROGRESS_STORAGE_KEY);
       localStorage.removeItem(SESSION_TIMESTAMP_KEY);
-      console.log('[PERSISTENCE] Datos expirados eliminados');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PERSISTENCE] Datos expirados eliminados');
+      }
     }
   } catch (error) {
     console.error('[PERSISTENCE] Error limpiando datos expirados:', error);
@@ -62,16 +70,22 @@ function clearExpiredData(): void {
 // Función para detectar recarga de página
 function isPageReload(): boolean {
   try {
+    if (typeof window === 'undefined') {
+      return false;
+    }
     const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
     return navigationEntries.length > 0 && navigationEntries[0].type === 'reload';
   } catch (error) {
-    // Fallback: usar sessionStorage para detectar recarga
-    const reloadFlag = sessionStorage.getItem('page_reload_detected');
-    if (!reloadFlag) {
-      sessionStorage.setItem('page_reload_detected', 'true');
+    try {
+      const reloadFlag = sessionStorage.getItem('page_reload_detected');
+      if (!reloadFlag) {
+        sessionStorage.setItem('page_reload_detected', 'true');
+        return false;
+      }
+      return true;
+    } catch {
       return false;
     }
-    return true;
   }
 }
 
@@ -191,7 +205,9 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
       setHasSavedProgress(false);
       
       if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
-        console.log('[PERSISTENCE] Progreso de registro eliminado');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[PERSISTENCE] Progreso de registro eliminado');
+        }
       }
     } catch (error) {
       console.error('[PERSISTENCE] Error eliminando progreso:', error);
@@ -236,7 +252,9 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
       
       setHasSavedProgress(true);
       
-      if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
+      // Logging reducido para evitar spam en consola
+      if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging && 
+          process.env.NODE_ENV === 'development') {
         console.log('[PERSISTENCE] Progreso de registro guardado');
       }
     } catch (error) {
@@ -250,13 +268,18 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
     progress: RegistrationProgress | null 
   } => {
     try {
+      if (typeof window === 'undefined') {
+        return { data: null, progress: null };
+      }
       // Limpiar datos expirados antes de cargar
       clearExpiredData();
       
       // Verificar si es una recarga de página y limpiar si está configurado
       if (PAGE_RELOAD_CLEAR && isPageReload()) {
         if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
-          console.log('[PERSISTENCE] Recarga de página detectada, limpiando datos');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PERSISTENCE] Recarga de página detectada, limpiando datos');
+          }
         }
         clearProgress();
         return { data: null, progress: null };
@@ -276,7 +299,9 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
       const decryptedData = decryptSensitiveFields(data);
       
       if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
-        console.log('[PERSISTENCE] Progreso de registro cargado');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[PERSISTENCE] Progreso de registro cargado');
+        }
       }
       
       return { data: decryptedData, progress };
@@ -293,13 +318,17 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
   // Verificar si hay progreso guardado al cargar
   useEffect(() => {
     try {
-      const savedData = localStorage.getItem(REGISTRATION_STORAGE_KEY);
-      const savedProgress = localStorage.getItem(PROGRESS_STORAGE_KEY);
-      setHasSavedProgress(!!(savedData && savedProgress));
+      if (typeof window !== 'undefined') {
+        const savedData = localStorage.getItem(REGISTRATION_STORAGE_KEY);
+        const savedProgress = localStorage.getItem(PROGRESS_STORAGE_KEY);
+        setHasSavedProgress(!!(savedData && savedProgress));
+      }
       setIsInitialized(true);
       
       if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
-        console.log('[PERSISTENCE] Hook inicializado correctamente');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[PERSISTENCE] Hook inicializado correctamente');
+        }
       }
     } catch (error) {
       console.error('[PERSISTENCE] Error inicializando hook:', error);
@@ -314,7 +343,9 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
     const handleBeforeUnload = () => {
       if (PAGE_UNLOAD_CLEAR) {
         if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
-          console.log('[PERSISTENCE] Página se está cerrando, limpiando datos');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PERSISTENCE] Página se está cerrando, limpiando datos');
+          }
         }
         clearProgress();
       }
@@ -323,7 +354,9 @@ export function useRegistrationPersistence(): UseRegistrationPersistenceReturn {
     const handleVisibilityChange = () => {
       if (TAB_CHANGE_CLEAR && document.hidden) {
         if (REGISTRATION_PERSISTENCE_CONFIG.environment.verboseLogging) {
-          console.log('[PERSISTENCE] Pestaña oculta, limpiando datos');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PERSISTENCE] Pestaña oculta, limpiando datos');
+          }
         }
         clearProgress();
       }

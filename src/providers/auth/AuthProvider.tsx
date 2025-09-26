@@ -17,6 +17,7 @@ type AuthContextType = {
   isPatient: boolean
   isClinic: boolean
   isLaboratory: boolean
+  isPharmacy: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, userData: any) => Promise<{ error: Error | null; data: any }>
   signOut: () => Promise<void>
@@ -198,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPatient = role === 'patient'
   const isClinic = role === 'clinic'
   const isLaboratory = role === 'laboratory'
+  const isPharmacy = role === 'pharmacy'
 
   // Extend user object with specialtyId for easier access
   const extendedUser = user ? { ...user, specialtyId } : null
@@ -214,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isPatient,
     isClinic,
     isLaboratory,
+    isPharmacy,
     signIn,
     signUp,
     signOut,

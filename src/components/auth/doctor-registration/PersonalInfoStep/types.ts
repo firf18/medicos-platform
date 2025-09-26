@@ -31,12 +31,10 @@ export interface FormData {
 
 // Props del componente PersonalInfoStep
 export interface PersonalInfoStepProps {
-  stepCompleted: boolean;
-  stepError?: string;
-  onStepComplete: (stepName: string) => void;
-  onStepError: (stepName: string, errorMessage: string) => void;
-  formData: FormData;
-  updateData: (data: Partial<FormData>) => void;
+  onStepComplete: (data: any) => void;
+  onStepError: (error: string) => void;
+  formData: any;
+  updateData: (data: any) => void;
   formErrors?: {
     hasErrors: boolean;
     getFieldError: (field: string) => string | undefined;
@@ -45,4 +43,5 @@ export interface PersonalInfoStepProps {
     hasFieldError: (field: string) => boolean;
     getFieldErrorElement: (field: string) => JSX.Element | null;
   };
+  onValidationChange?: (isValid: boolean) => void;
 }

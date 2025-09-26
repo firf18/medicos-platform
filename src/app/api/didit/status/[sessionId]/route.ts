@@ -1,108 +1,201 @@
 /**
- * Didit Status API - Platform Médicos Elite
+ * 🎯 DIDIT SESSION STATUS ENDPOINT
  * 
- * API para consultar el estado de sesiones de verificación con Didit.me
- * siguiendo las mejores prácticas de NextAuth.js
+ * Endpoint para obtener el estado de una sesión de verificación de Didit
+ * 
+ * @version 1.0.0
+ * @author Platform Médicos Team
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logSecurityEvent } from '@/lib/validations/security.validations';
+import { diditApiClient, DiditApiError } from '@/lib/didit/client';
 
-// Configuración de Didit v2
-const DIDIT_V2_CONFIG = {
-  apiKey: process.env.DIDIT_API_KEY,
-  baseUrl: 'https://verification.didit.me/v2',
-  timeout: 30000,
-};
+// Tipos para el estado de la sesión
+interface DiditSessionStatus {
+  session_id: string;
+  status: 'Not Started' | 'In Progress' | 'In Review' | 'Approved' | 'Declined' | 'Abandoned' | 'Expired';
+  decision?: {
+    face_match?: { status: string; confidence?: number };
+    id_verification?: { status: string; confidence?: number };
+    liveness?: { status: string; confidence?: number };
+    aml?: { status: string; confidence?: number };
+  };
+  document_name?: string;
+  extracted_name?: string;
+  created_at?: string;
+  updated_at?: string;
+  expires_at?: string;
+}
 
+/**
+ * GET - Obtiene el estado de una sesión de verificación
+ */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     if (!sessionId) {
       return NextResponse.json(
-        { error: 'Session ID requerido' },
+        { error: 'sessionId es requerido' },
         { status: 400 }
       );
     }
 
-    // Validar configuración de API
-    if (!DIDIT_V2_CONFIG.apiKey) {
-      console.error('DIDIT_API_KEY no configurada');
-      return NextResponse.json(
-        { error: 'Configuración de Didit incompleta' },
-        { status: 500 }
-      );
-    }
-
-    // Consultar estado de la sesión en Didit API v2
-    const diditResponse = await fetch(`${DIDIT_V2_CONFIG.baseUrl}/session/${sessionId}/decision/`, {
-      method: 'GET',
-      headers: {
-        'x-api-key': DIDIT_V2_CONFIG.apiKey as string,
-        'accept': 'application/json',
-        'accept': 'application/json',
-        'User-Agent': 'Platform-Medicos/2.0.0'
+    // Log de auditoría
+    logSecurityEvent(
+      'didit_status_request',
+      `Solicitud de estado para sesión ${sessionId}`,
+      {
+        sessionId,
+        timestamp: new Date().toISOString()
       },
-      signal: AbortSignal.timeout(DIDIT_V2_CONFIG.timeout)
-    });
+      'info'
+    );
 
-    if (!diditResponse.ok) {
-      let errorData = {};
-      try {
-        errorData = await diditResponse.json();
-      } catch (parseError) {
-        console.warn('No se pudo parsear respuesta de error de Didit:', parseError);
-        errorData = { error: 'Error de comunicación con Didit' };
+    // Obtener estado de la sesión usando el cliente robusto
+    let sessionStatus;
+    try {
+      sessionStatus = await diditApiClient.getSessionStatus(sessionId);
+    } catch (error) {
+      console.error('Error obteniendo estado de sesión desde Didit:', error);
+      
+      // Si es un error de configuración, devolver error específico
+      if (error instanceof Error && error.message.includes('Configuración de Didit inválida')) {
+        return NextResponse.json(
+          { 
+            error: 'Configuración de Didit no válida',
+            details: 'Verifique las variables de entorno de Didit',
+            sessionId,
+            timestamp: new Date().toISOString()
+          },
+          { status: 500 }
+        );
       }
       
-      console.error('Error consultando estado de Didit:', {
-        sessionId,
-        status: diditResponse.status,
-        statusText: diditResponse.statusText,
-        errorData
-      });
+      // Si es un error 404 de Didit, devolver error específico con información útil
+      if (error instanceof DiditApiError && error.statusCode === 404) {
+        logSecurityEvent(
+          'didit_session_not_found',
+          `Sesión ${sessionId} no encontrada en Didit`,
+          {
+            sessionId,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          },
+          'warning'
+        );
+
+        return NextResponse.json(
+          { 
+            error: 'Sesión no encontrada',
+            details: 'La sesión puede haber expirado o no existir en Didit',
+            sessionId,
+            status: 'Expired',
+            timestamp: new Date().toISOString(),
+            // Información adicional para el frontend
+            sessionExpired: true,
+            message: 'Sesión de verificación no encontrada. Puede haber expirado o no existir.'
+          },
+          { status: 404 }
+        );
+      }
       
+      throw error; // Re-lanzar otros errores
+    }
+
+    // Construir respuesta compatible con el frontend
+    const response: DiditSessionStatus = {
+      session_id: sessionId,
+      status: sessionStatus.status,
+      decision: sessionStatus.decision,
+      document_name: sessionStatus.document_name,
+      extracted_name: sessionStatus.extracted_name,
+      created_at: sessionStatus.created_at,
+      updated_at: sessionStatus.updated_at,
+      expires_at: sessionStatus.expires_at
+    };
+
+    // Log de auditoría exitoso
+    logSecurityEvent(
+      'didit_status_success',
+      `Estado obtenido para sesión ${sessionId}`,
+      {
+        sessionId,
+        status: sessionStatus.status,
+        timestamp: new Date().toISOString()
+      },
+      'info'
+    );
+
+    return NextResponse.json(response);
+
+  } catch (error) {
+    console.error('Error obteniendo estado de sesión Didit:', error);
+
+    // Manejo específico de errores de Didit
+    if (error instanceof DiditApiError) {
+      const statusCode = error.statusCode || 500;
+      
+      logSecurityEvent(
+        'didit_status_error',
+        `Error de Didit obteniendo estado: ${error.message}`,
+        {
+          error: error.message,
+          statusCode,
+          details: error.details,
+          timestamp: new Date().toISOString()
+        },
+        'error'
+      );
+
       return NextResponse.json(
         { 
-          error: 'Error consultando estado de verificación',
-          details: errorData.error || diditResponse.statusText
+          error: error.message,
+          details: error.details,
+          status: statusCode
         },
-        { status: diditResponse.status }
+        { status: statusCode }
       );
     }
 
-    const statusData = await diditResponse.json();
+    // Error genérico
+    logSecurityEvent(
+      'didit_status_error',
+      `Error interno obteniendo estado: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+      {
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        timestamp: new Date().toISOString()
+      },
+      'error'
+    );
 
-    // Log de auditoría
-    console.log('Estado de verificación consultado:', {
-      sessionId,
-      status: statusData.status,
-      timestamp: new Date().toISOString(),
-      platform: 'platform-medicos'
-    });
-
-    // Retornar datos del estado en formato v2
-    return NextResponse.json({
-      sessionId: statusData.session_id,
-      status: statusData.status,
-      decision: statusData.decision,
-      progress: statusData.progress || 0,
-      expiresAt: statusData.expires_at,
-      lastUpdated: statusData.last_updated || new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Error en API de estado Didit:', error);
-    
     return NextResponse.json(
       { 
         error: 'Error interno del servidor',
-        details: error instanceof Error ? error.message : 'Error desconocido'
+        details: 'Error obteniendo estado de la sesión'
       },
       { status: 500 }
     );
   }
+}
+
+/**
+ * OPTIONS - CORS preflight
+ */
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    }
+  );
 }

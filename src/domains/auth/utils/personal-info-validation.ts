@@ -118,26 +118,81 @@ export const validateEmailFormat = (email: string): EmailValidationResult => {
 /**
  * Check email availability via API
  * @param email - Email to check
+ * @param csrfToken - CSRF token for the request
  * @returns Promise with availability result
  */
-export const checkEmailAvailability = async (email: string): Promise<boolean> => {
+export const checkEmailAvailability = async (email: string, csrfToken?: string): Promise<boolean> => {
   try {
+    // Get CSRF token from parameter or cookie
+    let token = csrfToken;
+    if (!token) {
+      token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrf-token='))
+        ?.split('=')[1];
+    }
+
     const response = await fetch('/api/auth/check-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'X-CSRF-Token': token })
       },
+      credentials: 'include',
       body: JSON.stringify({ email: email.trim().toLowerCase() }),
     });
 
     if (!response.ok) {
-      // Graceful fallback: do not spam console in non-critical check
+      // Log the error for debugging
+      console.warn(`Email availability check failed: ${response.status} ${response.statusText}`);
       return true; // Assume available on error to not block registration
     }
 
     const result = await response.json();
-    return result.available;
-  } catch (_) {
+    return result.isAvailable !== false; // Default to true if not explicitly false
+  } catch (error) {
+    console.warn('Email availability check error:', error);
+    return true; // Assume available on network or server error
+  }
+};
+
+/**
+ * Check phone availability via API
+ * @param phone - Phone number to check
+ * @param csrfToken - CSRF token for the request
+ * @returns Promise with availability result
+ */
+export const checkPhoneAvailability = async (phone: string, csrfToken?: string): Promise<boolean> => {
+  try {
+    // Get CSRF token from parameter or cookie
+    let token = csrfToken;
+    if (!token) {
+      token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrf-token='))
+        ?.split('=')[1];
+    }
+
+    const response = await fetch('/api/auth/check-phone', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'X-CSRF-Token': token })
+      },
+      credentials: 'include',
+      body: JSON.stringify({ phone: phone.replace(/\D/g, '') }),
+    });
+
+    if (!response.ok) {
+      // Log the error for debugging
+      console.warn(`Phone availability check failed: ${response.status} ${response.statusText}`);
+      return true; // Assume available on error to not block registration
+    }
+
+    const result = await response.json();
+    return result.isAvailable !== false; // Default to true if not explicitly false
+  } catch (error) {
+    console.warn('Phone availability check error:', error);
     return true; // Assume available on network or server error
   }
 };

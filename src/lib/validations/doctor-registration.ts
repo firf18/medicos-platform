@@ -77,14 +77,7 @@ export {
 // ALIASES LEGACY PARA MÁXIMA COMPATIBILIDAD
 // ============================================================================
 
-import {
-  validatePasswordStrength as newValidatePasswordStrength,
-  sanitizeInput as newSanitizeInput,
-  logSecurityEvent as newLogSecurityEvent
-} from './index';
-
 // validatePasswordStrength ya está exportado arriba en el export principal
-
 // sanitizeInput ya está exportado arriba en el export principal
 
 // logSecurityEvent ya está exportado arriba en el export principal

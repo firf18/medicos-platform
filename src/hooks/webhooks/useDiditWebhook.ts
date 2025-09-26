@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { logger } from '@/lib/logging/logger';
 import { toast } from '@/hooks/use-toast';
+import { registerDiditSession, updateDiditSessionCheck, removeDiditSession, isDiditSessionExpired } from '@/lib/didit/session-cleanup';
 
 // Tipos para el estado del webhook
 interface WebhookState {
@@ -98,6 +99,28 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
   }, []);
 
   /**
+   * Función interna para detener el polling
+   */
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    // Remover sesión del tracking si existe
+    if (webhookState.sessionId) {
+      removeDiditSession(webhookState.sessionId);
+    }
+
+    isListeningRef.current = false;
+    updateWebhookState({ status: 'idle' });
+
+    logger.info('webhook', 'Stopped listening to webhook', {
+      sessionId: webhookState.sessionId
+    });
+  }, [webhookState.sessionId, updateWebhookState]);
+
+  /**
    * Obtiene el estado actual de la verificación desde la API
    */
   const fetchVerificationStatus = useCallback(async (sessionId: string): Promise<VerificationData | null> => {
@@ -127,9 +150,12 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
 
       return verificationData;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      
       logger.error('webhook', 'Error fetching verification status', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        sessionId
+        error: errorMessage,
+        sessionId,
+        timestamp: new Date().toISOString()
       });
       throw error;
     }
@@ -210,11 +236,43 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
         });
 
         // Detener polling si está completado
-        stopListening();
+        stopPolling();
       }
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      
+      // Manejo específico para sesiones expiradas o no encontradas (404)
+      if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        logger.warn('webhook', 'Sesión expirada o no encontrada, deteniendo polling', {
+          sessionId,
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+
+        updateWebhookState({ 
+          status: 'error',
+          error: 'Sesión de verificación no encontrada. Puede haber expirado o no existir.',
+          retryCount: maxRetries // Marcar como máximo para evitar más reintentos
+        });
+
+        // Detener polling inmediatamente para sesiones expiradas
+        stopPolling();
+
+        // Mostrar mensaje específico para sesiones expiradas
+        toast({
+          title: 'Sesión expirada',
+          description: 'La sesión de verificación ha expirado. Por favor, inicie una nueva verificación.',
+          variant: 'destructive'
+        });
+
+        // Llamar callback de error
+        if (onError) {
+          onError('Sesión de verificación no encontrada. Puede haber expirado o no existir.');
+        }
+
+        return; // Salir temprano para sesiones expiradas
+      }
       
       updateWebhookState({
         error: errorMessage,
@@ -224,7 +282,8 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
       logger.error('webhook', 'Error processing status update', {
         error: errorMessage,
         sessionId,
-        retryCount: webhookState.retryCount + 1
+        retryCount: webhookState.retryCount + 1,
+        timestamp: new Date().toISOString()
       });
 
       // Llamar callback de error
@@ -235,7 +294,7 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
       // Si excede el máximo de reintentos, detener polling
       if (webhookState.retryCount >= maxRetries) {
         updateWebhookState({ status: 'error' });
-        stopListening();
+        stopPolling();
         
         toast({
           title: 'Error de verificación',
@@ -255,6 +314,21 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
       return;
     }
 
+    // Verificar si la sesión ya está expirada antes de iniciar
+    if (isDiditSessionExpired(sessionId)) {
+      logger.warn('webhook', 'Sesión expirada antes de iniciar polling', { sessionId });
+      updateWebhookState({
+        sessionId,
+        status: 'error',
+        error: 'Sesión de verificación expirada',
+        retryCount: maxRetries
+      });
+      return;
+    }
+
+    // Registrar sesión para tracking
+    registerDiditSession(sessionId);
+
     updateWebhookState({
       sessionId,
       status: 'listening',
@@ -271,6 +345,15 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
     if (enablePolling) {
       pollingRef.current = setInterval(() => {
         if (isListeningRef.current && webhookState.status !== 'completed' && webhookState.status !== 'error') {
+          // Verificar si la sesión ha expirado antes de hacer polling
+          if (isDiditSessionExpired(sessionId)) {
+            logger.warn('webhook', 'Sesión expirada durante polling, deteniendo', { sessionId });
+            stopPolling();
+            return;
+          }
+          
+          // Actualizar último check
+          updateDiditSessionCheck(sessionId);
           processStatusUpdate(sessionId);
         }
       }, pollingInterval);
@@ -281,24 +364,14 @@ export function useDiditWebhook(options: UseDiditWebhookOptions = {}): UseDiditW
       pollingInterval,
       enablePolling
     });
-  }, [enablePolling, pollingInterval, processStatusUpdate, updateWebhookState, webhookState.status]);
+  }, [enablePolling, pollingInterval, processStatusUpdate, updateWebhookState, webhookState.status, maxRetries, stopPolling]);
 
   /**
    * Detiene el polling
    */
   const stopListening = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-
-    isListeningRef.current = false;
-    updateWebhookState({ status: 'idle' });
-
-    logger.info('webhook', 'Stopped listening to webhook', {
-      sessionId: webhookState.sessionId
-    });
-  }, [webhookState.sessionId, updateWebhookState]);
+    stopPolling();
+  }, [stopPolling]);
 
   /**
    * Refresca el estado manualmente

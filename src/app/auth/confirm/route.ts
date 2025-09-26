@@ -1,38 +1,41 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { type EmailOtpType } from '@supabase/supabase-js'
-import { type NextRequest, NextResponse } from 'next/server'
+/**
+ * Email Confirmation Handler - Supabase Official PKCE Flow
+ * @fileoverview Maneja la confirmación de email usando el flujo PKCE oficial de Supabase
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { type EmailOtpType } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const token_hash = searchParams.get('token_hash')
-  const type = searchParams.get('type') as EmailOtpType | null
-  const next = searchParams.get('next') ?? '/'
+  try {
+    const { searchParams } = new URL(request.url);
+    const token_hash = searchParams.get('token_hash');
+    const type = searchParams.get('type') as EmailOtpType | null;
+    const next = searchParams.get('next') ?? '/auth/email-verified';
 
-  const redirectTo = request.nextUrl.clone()
-  redirectTo.pathname = next
-  redirectTo.searchParams.delete('token_hash')
-  redirectTo.searchParams.delete('type')
-  redirectTo.searchParams.delete('next')
+    if (token_hash && type) {
+      const supabase = await createServerSupabaseClient();
 
-  if (token_hash && type) {
-    const supabase = await createServerSupabaseClient()
+      const { error } = await supabase.auth.verifyOtp({
+        type,
+        token_hash,
+      });
 
-    const { data, error } = await supabase.auth.verifyOtp({
-      type,
-      token_hash,
-    })
-
-    if (!error && data.user) {
-      // Redirigir según el rol del usuario
-      const role = data.user.user_metadata?.role || 'patient'
-      const dashboardUrl = role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'
-      
-      redirectTo.pathname = dashboardUrl
-      return NextResponse.redirect(redirectTo)
+      if (!error) {
+        console.log(`✅ Email confirmado exitosamente`);
+        // Redirigir a la página de éxito
+        return NextResponse.redirect(new URL(next, request.url));
+      } else {
+        console.error('Error verificando email:', error);
+      }
     }
-  }
 
-  // Si hay error, redirigir a la página de error
-  redirectTo.pathname = '/auth/auth-code-error'
-  return NextResponse.redirect(redirectTo)
+    // Redirigir a página de error
+    return NextResponse.redirect(new URL('/auth/email-error', request.url));
+
+  } catch (error) {
+    console.error('Error en confirmación de email:', error);
+    return NextResponse.redirect(new URL('/auth/email-error', request.url));
+  }
 }

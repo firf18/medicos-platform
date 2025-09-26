@@ -117,47 +117,55 @@ export const useProfessionalInfoForm = ({
   }, [errors, onDataChange, formData.documentType]);
 
   /**
-   * Compare names for verification
+   * Compare names for verification - EXACT MATCH REQUIRED
+   * Según los requerimientos: "Solo si ambos coinciden, se procede al siguiente paso"
    */
   const compareNames = useCallback((providedName: string, officialName: string) => {
-    // Normalize names for comparison
+    // Normalize names for comparison - más estricto para coincidencia exacta
     const normalize = (name: string) => 
-      name.toLowerCase()
+      name.toUpperCase()
         .trim()
-        .replace(/[áàäâ]/g, 'a')
-        .replace(/[éèëê]/g, 'e')
-        .replace(/[íìïî]/g, 'i')
-        .replace(/[óòöô]/g, 'o')
-        .replace(/[úùüû]/g, 'u')
-        .replace(/ñ/g, 'n')
-        .replace(/\s+/g, ' ');
+        .replace(/[áàäâ]/g, 'A')
+        .replace(/[éèëê]/g, 'E')
+        .replace(/[íìïî]/g, 'I')
+        .replace(/[óòöô]/g, 'O')
+        .replace(/[úùüû]/g, 'U')
+        .replace(/ñ/g, 'N')
+        .replace(/\s+/g, ' ')
+        .replace(/[^A-Z\s]/g, ''); // Solo letras y espacios
 
     const normalizedProvided = normalize(providedName);
     const normalizedOfficial = normalize(officialName);
 
-    // Split into words to compare individual names
-    const providedWords = normalizedProvided.split(' ').filter(word => word.length > 2);
-    const officialWords = normalizedOfficial.split(' ').filter(word => word.length > 2);
-
-    // Calculate match percentage
-    let matches = 0;
-    providedWords.forEach(providedWord => {
-      if (officialWords.some(officialWord => 
-        officialWord.includes(providedWord) || providedWord.includes(officialWord)
-      )) {
-        matches++;
-      }
-    });
-
-    const confidence = matches / Math.max(providedWords.length, 1);
-    const isMatch = confidence >= 0.6; // 60% threshold
+    // Comparación exacta - debe ser idéntica
+    const isExactMatch = normalizedProvided === normalizedOfficial;
+    
+    // Si no es exacta, calcular similitud para diagnóstico
+    let confidence = 0;
+    if (!isExactMatch) {
+      const providedWords = normalizedProvided.split(' ').filter(word => word.length > 1);
+      const officialWords = normalizedOfficial.split(' ').filter(word => word.length > 1);
+      
+      let matches = 0;
+      providedWords.forEach(providedWord => {
+        if (officialWords.some(officialWord => 
+          officialWord === providedWord // Comparación exacta de palabras
+        )) {
+          matches++;
+        }
+      });
+      
+      confidence = matches / Math.max(providedWords.length, 1);
+    } else {
+      confidence = 1.0;
+    }
 
     return {
-      matches: isMatch,
+      matches: isExactMatch,
       confidence,
-      message: isMatch 
-        ? 'Los nombres coinciden correctamente'
-        : `Los nombres no coinciden. Oficial: ${officialName}. Verifique y corrija los nombres en el paso anterior.`
+      message: isExactMatch 
+        ? 'Los nombres coinciden exactamente con el registro SACS'
+        : `Los nombres NO coinciden exactamente. Registrado en SACS: "${officialName}". Debe regresar al paso anterior y corregir los nombres para que sean idénticos.`
     };
   }, []);
 
@@ -389,31 +397,63 @@ export const useProfessionalInfoForm = ({
     // Computed values
     isFormValid: Object.keys(errors).length === 0,
     canSubmit: (() => {
+      // 1. Verificar que no hay errores de validación
       const hasNoErrors = Object.keys(errors).length === 0;
-      const isNotVerifying = verificationStatus !== 'verifying';
-      const hasBasicData = formData.university && formData.graduationYear && formData.medicalBoard && 
-                          formData.bio && formData.bio.length >= 50 && formData.documentNumber;
       
-      // Debug logging
-      console.log('[PROFESSIONAL_INFO_DEBUG]', {
+      // 2. Verificar que no está en proceso de verificación
+      const isNotVerifying = verificationStatus !== 'verifying';
+      
+      // 3. Verificar que todos los campos requeridos están completos
+      const hasRequiredFields = !!(
+        formData.documentNumber && 
+        formData.documentNumber.trim().length >= 9 && // Cédula válida
+        formData.university && 
+        formData.university.trim().length > 0 &&
+        formData.graduationYear && 
+        formData.graduationYear.trim().length > 0 &&
+        formData.medicalBoard && 
+        formData.medicalBoard.trim().length > 0 &&
+        formData.bio && 
+        formData.bio.trim().length >= 50
+      );
+      
+      // 4. Verificar que la cédula está verificada y es válida
+      const isDocumentVerified = verificationResult?.isValid === true && 
+                                verificationResult?.isVerified === true;
+      
+      // 5. Verificar que los nombres coinciden exactamente (si aplica)
+      const namesMatchExactly = !verificationResult?.nameMatch || 
+                               verificationResult.nameMatch.matches;
+      
+      // Debug logging mejorado
+      console.log('[PROFESSIONAL_INFO_VALIDATION]', {
         hasNoErrors,
         errorsCount: Object.keys(errors).length,
         errors: errors,
         verificationStatus,
         isNotVerifying,
-        hasBasicData,
+        hasRequiredFields,
+        isDocumentVerified,
+        namesMatchExactly,
         formData: {
-          university: !!formData.university,
-          graduationYear: !!formData.graduationYear,
-          medicalBoard: !!formData.medicalBoard,
-          bio: formData.bio.length,
-          documentNumber: !!formData.documentNumber
+          documentNumber: formData.documentNumber,
+          documentNumberLength: formData.documentNumber?.length || 0,
+          university: formData.university,
+          graduationYear: formData.graduationYear,
+          medicalBoard: formData.medicalBoard,
+          bio: formData.bio?.length || 0
         },
-        finalCanSubmit: hasNoErrors && isNotVerifying && hasBasicData
+        verificationResult: verificationResult ? {
+          isValid: verificationResult.isValid,
+          isVerified: verificationResult.isVerified,
+          hasNameMatch: !!verificationResult.nameMatch,
+          nameMatches: verificationResult.nameMatch?.matches
+        } : null,
+        finalCanSubmit: hasNoErrors && isNotVerifying && hasRequiredFields && isDocumentVerified && namesMatchExactly
       });
       
-      // Permitir avanzar si no hay errores, no está verificando y tiene datos básicos
-      return hasNoErrors && isNotVerifying && hasBasicData;
+      // Solo permitir avanzar si TODAS las condiciones se cumplen
+      return hasNoErrors && isNotVerifying && hasRequiredFields && isDocumentVerified && namesMatchExactly;
     })()
   };
 };

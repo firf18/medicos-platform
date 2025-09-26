@@ -1,6 +1,6 @@
 /**
- * Registration Navigation Hook
- * @fileoverview Navigation flow management for doctor registration process
+ * Registration Navigation Hook - Refactored
+ * @fileoverview Simplified navigation hook using utility functions
  * @compliance HIPAA-compliant navigation with audit trail
  */
 
@@ -10,6 +10,17 @@ import { RegistrationStep, DoctorRegistrationData, RegistrationProgress } from '
 import { toast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logging/logger';
 import { logSecurityEvent } from '@/lib/validations/security.validations';
+import {
+  STEP_ORDER,
+  STEP_ROUTES,
+  STEP_DISPLAY_NAMES,
+  getStepInfo,
+  getNextStep,
+  getPreviousStep,
+  calculateProgressPercentage,
+  canProceedNext,
+  canGoBack
+} from './navigation/registration-navigation.utils';
 
 interface UseRegistrationNavigationProps {
   currentStep: RegistrationStep;
@@ -30,286 +41,199 @@ export const useRegistrationNavigation = ({
 }: UseRegistrationNavigationProps) => {
   const router = useRouter();
 
-  // Step order configuration
-  const stepOrder: RegistrationStep[] = [
-    'personal_info',
-    'professional_info',
-    'specialty_selection',
-    'identity_verification',
-    'dashboard_configuration',
-    'final_review'
-  ];
-
-  // Step routes mapping
-  const stepRoutes: Record<RegistrationStep, string> = {
-    personal_info: '/auth/register/doctor',
-    professional_info: '/auth/register/doctor?step=professional',
-    specialty_selection: '/auth/register/doctor?step=specialty',
-    identity_verification: '/auth/register/doctor?step=identity',
-    dashboard_configuration: '/auth/register/doctor?step=dashboard',
-    final_review: '/auth/register/doctor?step=final'
-  };
-
-  /**
-   * Get step information
-   */
-  const getStepInfo = useCallback((step: RegistrationStep) => {
-    const index = stepOrder.indexOf(step);
-    const isCompleted = completedSteps.includes(step);
-    const isCurrent = currentStep === step;
-    const canAccess = index === 0 || completedSteps.includes(stepOrder[index - 1]);
-    
-    return {
-      index: index + 1,
-      total: stepOrder.length,
-      isCompleted,
-      isCurrent,
-      canAccess,
-      route: stepRoutes[step]
-    };
-  }, [currentStep, completedSteps, stepOrder, stepRoutes]);
-
   /**
    * Navigate to specific step
    */
-  const goToStep = useCallback(async (targetStep: RegistrationStep, skipValidation = false) => {
-    const stepInfo = getStepInfo(targetStep);
+  const goToStep = useCallback(async (step: RegistrationStep) => {
+    const stepInfo = getStepInfo(step, currentStep, completedSteps);
     
-    // Check if step is accessible
     if (!stepInfo.canAccess) {
       toast({
-        title: 'Paso no disponible',
-        description: 'Complete los pasos anteriores para continuar',
+        title: 'Acceso denegado',
+        description: 'Debe completar los pasos anteriores antes de acceder a este paso.',
         variant: 'destructive'
       });
-      return false;
+      return;
     }
 
-    // Validate current step before navigation (unless skipping)
-    if (!skipValidation && currentStep !== targetStep) {
+    // Validate current step before navigating
+    if (currentStep !== step) {
       const validation = await onValidateStep(currentStep, registrationData);
-      
       if (!validation.isValid) {
         toast({
-          title: 'Validación requerida',
-          description: 'Complete correctamente el paso actual antes de continuar',
+          title: 'Error de validación',
+          description: 'Complete la información requerida antes de continuar.',
           variant: 'destructive'
         });
-        return false;
+        return;
       }
-      
-      // Mark current step as completed
-      onStepComplete(currentStep);
     }
 
-    // Navigate to target step
-    onStepChange(targetStep);
-    
-    // Removed router.push to prevent URL navigation issues
-    // router.push(stepInfo.route);
-    
-    // Log navigation
-    logSecurityEvent('registration_navigation', {
-      fromStep: currentStep,
-      toStep: targetStep,
-      skipValidation
-    });
+    // Log navigation event
+    logSecurityEvent('data_access', 'registration_step_navigation');
 
-    logger.info('registration', 'Navigated to step', {
-      fromStep: currentStep,
-      toStep: targetStep,
-      stepIndex: stepInfo.index
-    });
-
-    return true;
-  }, [currentStep, registrationData, onValidateStep, onStepComplete, onStepChange, router, getStepInfo]);
+    onStepChange(step);
+  }, [currentStep, completedSteps, registrationData, onValidateStep, onStepChange]);
 
   /**
    * Navigate to next step
    */
   const goToNextStep = useCallback(async () => {
-    const currentIndex = stepOrder.indexOf(currentStep);
-    const nextStep = stepOrder[currentIndex + 1];
+    console.log('🚀 goToNextStep llamado:', { currentStep, registrationData });
     
-    if (!nextStep) {
-      // Registration complete, redirect to success page
-      router.push('/auth/register/doctor/success');
-      return true;
-    }
-
     // Validate current step before proceeding
     const validation = await onValidateStep(currentStep, registrationData);
+    console.log('🔍 Validación en goToNextStep:', validation);
     
     if (!validation.isValid) {
+      console.log('❌ Validación falló en goToNextStep');
       toast({
-        title: 'Complete la información requerida',
-        description: validation.errors?.[0] || 'Por favor complete todos los campos obligatorios',
+        title: 'Error de validación',
+        description: 'Complete la información requerida antes de continuar.',
         variant: 'destructive'
       });
-      return false;
+      return;
     }
 
+    console.log('✅ Validación pasada, marcando paso como completado');
     // Mark current step as completed
     onStepComplete(currentStep);
+
+    const nextStep = getNextStep(currentStep);
+    console.log('➡️ Siguiente paso:', nextStep);
     
-    // Navigate to next step without additional validation
-    onStepChange(nextStep);
-    // Removed router.push to prevent URL navigation issues
-    
-    return true;
-  }, [currentStep, stepOrder, router, onValidateStep, registrationData, onStepComplete, onStepChange, stepRoutes]);
+    if (nextStep) {
+      console.log('🚀 Navegando al siguiente paso:', nextStep);
+      await goToStep(nextStep);
+    } else {
+      console.log('❌ No hay siguiente paso disponible');
+    }
+  }, [currentStep, registrationData, onValidateStep, onStepComplete, goToStep]);
 
   /**
    * Navigate to previous step
    */
   const goToPreviousStep = useCallback(async () => {
-    const currentIndex = stepOrder.indexOf(currentStep);
-    const previousStep = stepOrder[currentIndex - 1];
-    
-    if (!previousStep) {
-      return false; // Already at first step
+    const previousStep = getPreviousStep(currentStep);
+    if (previousStep) {
+      await goToStep(previousStep);
     }
-
-    return goToStep(previousStep, true); // Skip validation when going back
-  }, [currentStep, stepOrder, goToStep]);
+  }, [currentStep, goToStep]);
 
   /**
    * Handle step completion
    */
   const handleStepComplete = useCallback(async (step: RegistrationStep) => {
-    // Validate step data
+    try {
+      // Validate step before completing
     const validation = await onValidateStep(step, registrationData);
-    
     if (!validation.isValid) {
       toast({
         title: 'Error de validación',
-        description: validation.errors?.[0] || 'Por favor corrija los errores antes de continuar',
+          description: 'Complete la información requerida antes de continuar.',
         variant: 'destructive'
       });
-      return false;
+        return;
     }
 
-    // Mark step as completed
+      // Log step completion
+      logSecurityEvent('data_modification', 'registration_step_completed');
+
     onStepComplete(step);
     
-    // Show success message
+      // Removed auto-navigation - navigation should only happen when user clicks "Siguiente"
+
+    } catch (error) {
+      logger.error('registration', 'Error completing step', { step, error });
     toast({
-      title: 'Paso completado',
-      description: `${getStepDisplayName(step)} completado exitosamente`,
-      variant: 'default'
-    });
-
-    // Log completion
-    logSecurityEvent('registration_step_completed', {
-      step,
-      completedSteps: [...completedSteps, step].length,
-      totalSteps: stepOrder.length
-    });
-
-    return true;
-  }, [onValidateStep, registrationData, onStepComplete, completedSteps, stepOrder]);
+        title: 'Error',
+        description: 'Ocurrió un error al completar el paso.',
+        variant: 'destructive'
+      });
+    }
+  }, [registrationData, onValidateStep, onStepComplete, onStepChange]);
 
   /**
    * Handle step error
    */
   const handleStepError = useCallback((step: RegistrationStep, error: string) => {
-    // Validar que el error no esté vacío
-    if (!error || error.trim().length === 0) {
-      console.warn('Intento de registrar error vacío:', { step, error });
-      return;
-    }
+    logger.error('registration', 'Step error', { step, error });
+    
+    logSecurityEvent('system_error', 'registration_step_error');
 
     toast({
       title: 'Error en el paso',
       description: error,
       variant: 'destructive'
     });
-
-    // Solo registrar si hay metadata válido
-    const errorMetadata = {
-      step,
-      error,
-      timestamp: new Date().toISOString()
-    };
-
-    logger.error('registration', 'Step validation error', errorMetadata);
-
-    logSecurityEvent('registration_step_error', errorMetadata);
   }, []);
 
   /**
    * Get step display name
    */
   const getStepDisplayName = useCallback((step: RegistrationStep): string => {
-    const displayNames: Record<RegistrationStep, string> = {
-      personal_info: 'Información Personal',
-      professional_info: 'Información Profesional',
-      specialty_selection: 'Selección de Especialidad',
-      license_verification: 'Verificación de Licencia',
-      identity_verification: 'Verificación de Identidad',
-      dashboard_configuration: 'Configuración del Dashboard'
-    };
-    
-    return displayNames[step] || step;
+    return STEP_DISPLAY_NAMES[step];
   }, []);
+
+  /**
+   * Get all steps info
+   */
+  const getAllStepsInfo = useCallback(() => {
+    return STEP_ORDER.map(step => getStepInfo(step, currentStep, completedSteps));
+  }, [currentStep, completedSteps]);
 
   /**
    * Get progress percentage
    */
   const getProgressPercentage = useCallback((): number => {
-    return Math.round((completedSteps.length / stepOrder.length) * 100);
-  }, [completedSteps, stepOrder]);
+    return calculateProgressPercentage(completedSteps);
+  }, [completedSteps]);
 
   /**
-   * Check if can proceed to next step
+   * Check if can proceed to next step with real-time validation
    */
-  const canProceedNext = useCallback((): boolean => {
-    return completedSteps.includes(currentStep);
-  }, [currentStep, completedSteps]);
-
-  /**
-   * Check if can go back
-   */
-  const canGoBack = useCallback((): boolean => {
-    const currentIndex = stepOrder.indexOf(currentStep);
-    return currentIndex > 0;
-  }, [currentStep, stepOrder]);
-
-  /**
-   * Get all step information
-   */
-  const getAllStepsInfo = useCallback(() => {
-    return stepOrder.map(step => ({
-      step,
-      ...getStepInfo(step),
-      displayName: getStepDisplayName(step)
-    }));
-  }, [stepOrder, getStepInfo, getStepDisplayName]);
+  const canProceedNextWithValidation = useCallback(async (): Promise<boolean> => {
+    // For personal_info step, validate all required fields and email verification
+    if (currentStep === 'personal_info') {
+      const validation = await onValidateStep(currentStep, registrationData);
+      
+      // Additional check for email verification
+      if (validation.isValid) {
+        // Check if email is verified (this would be stored in registrationData or a separate state)
+        // For now, we'll assume the validation includes email verification
+        return true;
+      }
+      
+      return false;
+    }
+    
+    // For other steps, use the standard logic
+    return canProceedNext(currentStep, completedSteps);
+  }, [currentStep, completedSteps, registrationData, onValidateStep]);
 
   return {
-    // Navigation actions
+    // Navigation functions
     goToStep,
     goToNextStep,
     goToPreviousStep,
     handleStepComplete,
     handleStepError,
     
-    // Step information
-    getStepInfo,
+    // Utility functions
+    getStepInfo: (step: RegistrationStep) => getStepInfo(step, currentStep, completedSteps),
     getStepDisplayName,
     getAllStepsInfo,
-    
-    // Progress information
     getProgressPercentage,
-    canProceedNext,
-    canGoBack,
     
-    // Step configuration
-    stepOrder,
-    stepRoutes,
+    // Computed values
+    canProceedNext: canProceedNext(currentStep, completedSteps), // Keep for backward compatibility
+    canProceedNextWithValidation, // New async version
+    canGoBack: canGoBack(currentStep),
     
-    // Current state
-    currentStepInfo: getStepInfo(currentStep),
+    // Constants
+    stepOrder: STEP_ORDER,
+    stepRoutes: STEP_ROUTES,
+    currentStepInfo: getStepInfo(currentStep, currentStep, completedSteps),
     progressPercentage: getProgressPercentage()
   };
 };

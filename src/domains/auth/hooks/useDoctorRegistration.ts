@@ -105,12 +105,15 @@ export const useDoctorRegistration = ({
    */
   const submitRegistration = useCallback(async (): Promise<boolean> => {
     try {
+      console.log('🚀 submitRegistration iniciado');
       setIsSubmitting(true);
 
       // Final validation
+      console.log('🔍 Validando datos de registro:', registrationData);
       const validation = await validateCompleteRegistration(registrationData);
       if (!validation.isValid) {
         const errorMessage = validation.errors?.[0] || 'Error de validación';
+        console.error('❌ Validación falló:', errorMessage);
         onRegistrationError?.(errorMessage);
         toast({
           title: 'Error de registro',
@@ -120,6 +123,8 @@ export const useDoctorRegistration = ({
         return false;
       }
 
+      console.log('✅ Validación exitosa, enviando datos...');
+
       // Log registration attempt
       logSecurityEvent('registration_submission_started', {
         email: registrationData.email,
@@ -128,17 +133,22 @@ export const useDoctorRegistration = ({
       });
 
       // Submit to API
+      console.log('📡 Enviando POST a /api/auth/register/doctor/finalize');
       const response = await fetch('/api/auth/register/doctor/finalize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(registrationData),
+        body: JSON.stringify(registrationData), // ✅ CORREGIDO: Enviar datos de registro
       });
+
+      console.log('📡 Respuesta recibida:', { status: response.status, ok: response.ok });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
         const errorMessage = errorData.error || 'Error al procesar el registro';
+        
+        console.error('❌ Error en respuesta:', { status: response.status, error: errorMessage });
         
         logger.error('registration', 'Registration submission failed', {
           status: response.status,
@@ -156,6 +166,7 @@ export const useDoctorRegistration = ({
       }
 
       const result = await response.json();
+      console.log('✅ Registro exitoso:', result);
 
       // Log successful registration
       logSecurityEvent('registration_completed', {
@@ -187,13 +198,24 @@ export const useDoctorRegistration = ({
       // Callback for completion
       onRegistrationComplete?.(registrationData);
 
-      // Redirect to success page
-      router.push('/auth/register/doctor/success');
+      // Redirect to doctor login with success message
+      router.push('/auth/login/medicos?message=registration-completed');
 
       return true;
 
     } catch (error) {
-      logger.error('registration', 'Registration submission error', { error });
+      // Asegurar que el error sea serializable
+      const errorDetails = error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : {
+        message: String(error),
+        type: typeof error
+      };
+      
+      logger.error('registration', 'Registration submission error', { errorDetails });
+      console.error('❌ Error detallado en submitRegistration:', errorDetails);
       
       const errorMessage = error instanceof Error ? error.message : 'Error inesperado durante el registro';
       onRegistrationError?.(errorMessage);
@@ -316,6 +338,10 @@ export const useDoctorRegistration = ({
     canGoBack: navCanGoBack,
     canProceedNext,
     isStepCompleted,
+    
+    // Legacy compatibility aliases
+    nextStep: goToNextStep,
+    prevStep: goToPreviousStep,
     
     // Current step info
     currentStepInfo

@@ -216,31 +216,29 @@ export const PasswordFieldsSection: React.FC<PasswordFieldsSectionProps> = ({
 
       {/* Password Security Notice (removed per request) */}
 
-      {/* Dynamic Password Requirements (interactive) */}
+      {/* Dynamic Password Requirements (horizontal layout) */}
       {(fieldTouched.password || (passwordValidation && !passwordValidation.isValid)) && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             <strong>Requisitos de contraseña:</strong>
-            <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-              <li className={`${formData.password.length >= 8 ? 'text-green-700' : 'text-red-700'}`}>
-                {formData.password.length >= 8 ? 'Mínimo 8 caracteres (ok)' : 'Mínimo 8 caracteres'}
-              </li>
-              <li className={`${/[A-Z]/.test(formData.password) ? 'text-green-700' : 'text-red-700'}`}>
-                {/[A-Z]/.test(formData.password) ? 'Incluye mayúscula (ok)' : 'Al menos una letra mayúscula'}
-              </li>
-              <li className={`${/[a-z]/.test(formData.password) ? 'text-green-700' : 'text-red-700'}`}>
-                {/[a-z]/.test(formData.password) ? 'Incluye minúscula (ok)' : 'Al menos una letra minúscula'}
-              </li>
-              <li className={`${/\d/.test(formData.password) ? 'text-green-700' : 'text-red-700'}`}>
-                {/\d/.test(formData.password) ? 'Incluye un número (ok)' : 'Al menos un número'}
-              </li>
-              <li className={`${/[@$!%*?&._-]/.test(formData.password) ? 'text-blue-700' : 'text-gray-600'}`}>
-                {/@$!%*?&._-/.test(formData.password)
-                  ? 'Buen plus: carácter especial detectado'
-                  : 'Opcional: agrega un carácter especial para mayor seguridad'}
-              </li>
-            </ul>
+            <div className="flex flex-wrap gap-4 mt-2 text-sm">
+              <span className={`flex items-center gap-1 ${formData.password.length >= 8 ? 'text-green-700' : 'text-red-700'}`}>
+                {formData.password.length >= 8 ? '✓' : '✗'} Mínimo 8 caracteres
+              </span>
+              <span className={`flex items-center gap-1 ${/[A-Z]/.test(formData.password) ? 'text-green-700' : 'text-red-700'}`}>
+                {/[A-Z]/.test(formData.password) ? '✓' : '✗'} Incluye mayúscula
+              </span>
+              <span className={`flex items-center gap-1 ${/[a-z]/.test(formData.password) ? 'text-green-700' : 'text-red-700'}`}>
+                {/[a-z]/.test(formData.password) ? '✓' : '✗'} Incluye minúscula
+              </span>
+              <span className={`flex items-center gap-1 ${/\d/.test(formData.password) ? 'text-green-700' : 'text-red-700'}`}>
+                {/\d/.test(formData.password) ? '✓' : '✗'} Incluye un número
+              </span>
+              <span className={`flex items-center gap-1 ${/[@$!%*?&._-]/.test(formData.password) ? 'text-blue-700' : 'text-gray-600'}`}>
+                {/@$!%*?&._-/.test(formData.password) ? '✓' : '○'} Carácter especial
+              </span>
+            </div>
           </AlertDescription>
         </Alert>
       )}

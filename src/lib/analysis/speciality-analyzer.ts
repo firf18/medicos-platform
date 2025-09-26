@@ -135,16 +135,43 @@ const PROFESSION_KEYWORDS = {
 };
 
 const INVALID_PROFESSIONS = [
+  // Veterinarios
   'VETERINARIO',
   'VETERINARIA',
   'VETERINARY',
   'VET',
+  'VET.',
+  'VETERINARIO(A)',
+  'VETERINARIA(A)',
+  
+  // Enfermeros
   'ENFERMERO',
   'ENFERMERA',
   'NURSE',
+  'ENFERMERO(A)',
+  'ENFERMERA(A)',
+  
+  // Técnicos
   'TÉCNICO',
   'TECNICO',
-  'TECHNICIAN'
+  'TECHNICIAN',
+  'TÉCNICO(A)',
+  'TECNICO(A)',
+  
+  // Otros profesionales no médicos
+  'FARMACEUTICO',
+  'FARMACEUTICA',
+  'PHARMACIST',
+  'ODONTOLOGO',
+  'ODONTOLOGA',
+  'DENTIST',
+  'PSICOLOGO',
+  'PSICOLOGA',
+  'PSYCHOLOGIST',
+  'FISIOTERAPEUTA',
+  'PHYSIOTHERAPIST',
+  'TERAPEUTA',
+  'THERAPIST'
 ];
 
 // ============================================================================
@@ -206,7 +233,8 @@ export function analyzeSpecialityAndAccess(
 }
 
 /**
- * Valida si es un profesional médico válido (no veterinario, etc.)
+ * Valida si es un profesional médico válido (NO veterinario, enfermero, técnico, etc.)
+ * ALGORITMO MEJORADO: Clasificación estricta médico vs veterinario
  */
 function validateMedicalProfessional(sacsData: SACSData): boolean {
   // Usar tanto profession como profesion (del scraping)
@@ -218,36 +246,49 @@ function validateMedicalProfessional(sacsData: SACSData): boolean {
 
   const profession = professionText.toUpperCase();
   
-  // IMPORTANTE: Verificar profesiones inválidas PRIMERO
+  // PASO 1: Verificar profesiones EXPLÍCITAMENTE INVÁLIDAS PRIMERO
   // Esto incluye veterinarios, enfermeros, técnicos, etc.
   for (const invalidProfession of INVALID_PROFESSIONS) {
     if (profession.includes(invalidProfession)) {
+      console.log(`[MEDICAL_CLASSIFICATION] ❌ Profesión inválida detectada: ${invalidProfession} en "${profession}"`);
       return false;
     }
   }
   
-  // Verificar que SÍ sea una profesión médica válida
+  // PASO 2: Verificar que SÍ sea una profesión médica válida
   // Buscar cualquier variación de MÉDICO (pero NO veterinario)
   if ((profession.includes('MÉDICO') || profession.includes('MEDICO')) && 
       !profession.includes('VETERINARIO')) {
+    console.log(`[MEDICAL_CLASSIFICATION] ✅ Médico válido detectado: "${profession}"`);
     return true;
   }
   
   // Buscar cualquier variación de CIRUJANO
   if (profession.includes('CIRUJANO') || profession.includes('CIRUJANA')) {
+    console.log(`[MEDICAL_CLASSIFICATION] ✅ Cirujano válido detectado: "${profession}"`);
     return true;
   }
   
   // Buscar cualquier variación de ESPECIALISTA
   if (profession.includes('ESPECIALISTA')) {
+    console.log(`[MEDICAL_CLASSIFICATION] ✅ Especialista válido detectado: "${profession}"`);
     return true;
   }
   
   // Buscar DOCTOR
   if (profession.includes('DOCTOR') || profession.includes('DR.') || profession.includes('DRA.')) {
+    console.log(`[MEDICAL_CLASSIFICATION] ✅ Doctor válido detectado: "${profession}"`);
     return true;
   }
   
+  // PASO 3: Verificación adicional para casos ambiguos
+  // Si contiene palabras médicas pero también veterinarias, rechazar
+  if (profession.includes('VETERINARIO') || profession.includes('VETERINARIA')) {
+    console.log(`[MEDICAL_CLASSIFICATION] ❌ Veterinario detectado (rechazado): "${profession}"`);
+    return false;
+  }
+  
+  console.log(`[MEDICAL_CLASSIFICATION] ❌ Profesión no reconocida como médica: "${profession}"`);
   return false;
 }
 
@@ -316,9 +357,11 @@ function detectSpecialty(sacsData: SACSData): string {
 
 /**
  * Determina qué dashboards puede acceder el médico
- * IMPORTANTE: Todos los médicos tienen acceso al dashboard de medicina general
+ * ALGORITMO MEJORADO: Asignación inteligente de dashboards por especialidad
  */
 function determineDashboardAccess(specialty: string, sacsData: SACSData): DashboardAccess {
+  console.log(`[DASHBOARD_ALGORITHM] Analizando especialidad: "${specialty}"`);
+  
   const specialtyConfig = MEDICAL_SPECIALTIES[specialty as keyof typeof MEDICAL_SPECIALTIES];
   
   if (specialtyConfig) {
@@ -328,6 +371,10 @@ function determineDashboardAccess(specialty: string, sacsData: SACSData): Dashbo
       ...specialtyConfig.dashboards
     ])];
     
+    console.log(`[DASHBOARD_ALGORITHM] ✅ Especialidad reconocida: ${specialty}`);
+    console.log(`[DASHBOARD_ALGORITHM] Dashboards asignados:`, allowedDashboards);
+    console.log(`[DASHBOARD_ALGORITHM] Dashboard principal: ${specialtyConfig.primary}`);
+    
     return {
       allowedDashboards,
       primaryDashboard: specialtyConfig.primary,
@@ -336,13 +383,83 @@ function determineDashboardAccess(specialty: string, sacsData: SACSData): Dashbo
     };
   }
   
+  // ALGORITMO DE FALLBACK: Detectar especialidad desde datos SACS
+  const detectedSpecialty = detectSpecialtyFromSACSData(sacsData);
+  if (detectedSpecialty && detectedSpecialty !== 'MEDICINA GENERAL') {
+    const fallbackConfig = MEDICAL_SPECIALTIES[detectedSpecialty as keyof typeof MEDICAL_SPECIALTIES];
+    if (fallbackConfig) {
+      const allowedDashboards = [...new Set([
+        'general-medicine',
+        ...fallbackConfig.dashboards
+      ])];
+      
+      console.log(`[DASHBOARD_ALGORITHM] ✅ Especialidad detectada desde SACS: ${detectedSpecialty}`);
+      console.log(`[DASHBOARD_ALGORITHM] Dashboards asignados (fallback):`, allowedDashboards);
+      
+      return {
+        allowedDashboards,
+        primaryDashboard: fallbackConfig.primary,
+        reason: `Acceso autorizado como ${fallbackConfig.description} (detectado desde SACS) + medicina general`,
+        requiresApproval: false
+      };
+    }
+  }
+  
   // Si no se encuentra especialidad específica, acceso básico
+  console.log(`[DASHBOARD_ALGORITHM] ⚠️ Sin especialidad específica detectada, asignando medicina general`);
+  
   return {
     allowedDashboards: ['general-medicine'],
     primaryDashboard: 'general-medicine',
-    reason: 'Acceso básico como médico general',
-    requiresApproval: true
+    reason: 'Acceso básico como médico general - especialidad no detectada',
+    requiresApproval: false // Cambiado a false para permitir acceso básico
   };
+}
+
+/**
+ * Detecta especialidad desde datos SACS cuando no está explícitamente definida
+ */
+function detectSpecialtyFromSACSData(sacsData: SACSData): string | null {
+  const profession = sacsData.profession || sacsData.rawData?.profesion || '';
+  const specialty = sacsData.specialty || sacsData.rawData?.especialidad || '';
+  
+  // Buscar en especialidad primero
+  if (specialty) {
+    const specialtyUpper = specialty.toUpperCase();
+    for (const [key] of Object.entries(MEDICAL_SPECIALTIES)) {
+      if (specialtyUpper.includes(key)) {
+        return key;
+      }
+    }
+  }
+  
+  // Buscar en profesión
+  if (profession) {
+    const professionUpper = profession.toUpperCase();
+    
+    // Buscar patrones específicos
+    if (professionUpper.includes('ESPECIALISTA EN')) {
+      const match = professionUpper.match(/ESPECIALISTA EN\s+([^,]+)/);
+      if (match) {
+        const detectedSpecialty = match[1].trim();
+        // Verificar si es una especialidad conocida
+        for (const [key] of Object.entries(MEDICAL_SPECIALTIES)) {
+          if (detectedSpecialty.includes(key)) {
+            return key;
+          }
+        }
+      }
+    }
+    
+    // Buscar especialidades específicas en la profesión
+    for (const [key] of Object.entries(MEDICAL_SPECIALTIES)) {
+      if (professionUpper.includes(key)) {
+        return key;
+      }
+    }
+  }
+  
+  return null;
 }
 
 /**

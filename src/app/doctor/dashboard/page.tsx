@@ -38,13 +38,37 @@ export default function DoctorDashboard() {
     upcomingAppointments: []
   });
   const [loading, setLoading] = useState(true);
+  const [isNewDoctor, setIsNewDoctor] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     if (user) {
+      checkIfNewDoctor();
       fetchDashboardData();
     }
   }, [user]);
+
+  const checkIfNewDoctor = async () => {
+    try {
+      // Verificar si es un médico recién registrado
+      const { data: doctorData, error } = await supabase
+        .from('doctors')
+        .select('created_at')
+        .eq('id', user?.id)
+        .single();
+
+      if (!error && doctorData) {
+        const createdAt = new Date(doctorData.created_at);
+        const now = new Date();
+        const hoursSinceRegistration = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+        
+        // Si se registró hace menos de 24 horas, mostrar mensaje de bienvenida
+        setIsNewDoctor(hoursSinceRegistration < 24);
+      }
+    } catch (error) {
+      console.error('Error checking doctor registration date:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -129,12 +153,38 @@ export default function DoctorDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white shadow rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          ¡Bienvenido, Dr. {user?.user_metadata?.first_name || 'Médico'}!
-        </h1>
-        <p className="mt-1 text-gray-600">
-          Aquí tienes un resumen de tu actividad médica.
-        </p>
+        {isNewDoctor ? (
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              ¡Bienvenido a Red-Salud, Dr. {user?.user_metadata?.first_name || 'Médico'}!
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">
+              Tu registro se ha completado exitosamente. Estás listo para comenzar a atender pacientes.
+            </p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-2xl mx-auto">
+              <p className="text-green-800 font-medium">
+                🎉 ¡Felicidades! Tu cuenta médica está activa y verificada.
+              </p>
+              <p className="text-green-700 text-sm mt-2">
+                Puedes comenzar a gestionar citas, pacientes y expedientes médicos desde este dashboard.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              ¡Bienvenido, Dr. {user?.user_metadata?.first_name || 'Médico'}!
+            </h1>
+            <p className="mt-1 text-gray-600">
+              Aquí tienes un resumen de tu actividad médica.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Stats Cards */}

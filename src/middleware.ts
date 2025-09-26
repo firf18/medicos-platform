@@ -1,93 +1,67 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-
-// Rutas que requieren autenticación
-const protectedRoutes = [
-  '/dashboard',
-  '/patient',
-  '/doctor',
-  '/clinic',
-  '/laboratory',
-  '/admin'
-]
-
-// Rutas de autenticación (donde no se permite estar logueado)
-const authRoutes = [
-  '/auth/login',
-  '/auth/register',
-  '/auth/forgot-password'
-]
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res })
+  const pathname = request.nextUrl.pathname;
   
-  // Refresh session if expired - required for Server Components
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  const { pathname } = request.nextUrl
-  
-  // Redirect authenticated users away from auth pages
-  if (session && authRoutes.some(route => pathname.startsWith(route))) {
-    const role = session.user?.user_metadata?.role || 'patient';
-    const redirectTo = role === 'doctor' ? '/doctor/dashboard' : 
-                      role === 'clinic' ? '/clinic/dashboard' : 
-                      role === 'laboratory' ? '/laboratory/dashboard' : 
-                      role === 'admin' ? '/admin/dashboard' : 
-                      '/patient/dashboard';
-    return NextResponse.redirect(new URL(redirectTo, request.url))
+  // Handle legacy route redirects
+  if (pathname === '/patient-portal' || pathname === '/patient-dashboard') {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   
-  // Redirect unauthenticated users to login
-  if (!session && protectedRoutes.some(route => pathname.startsWith(route))) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    url.searchParams.set('redirectedFrom', pathname)
-    return NextResponse.redirect(url)
+  // Redirect generic dashboard to login (autenticación se maneja en cliente)
+  if (pathname === '/dashboard') {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   
-  // Role-based access control for protected routes
-  if (session && protectedRoutes.some(route => pathname.startsWith(route))) {
-    const role = session.user?.user_metadata?.role || 'patient';
-    
-    // Restrict doctor routes to doctors only
-    if (pathname.startsWith('/doctor/') && role !== 'doctor') {
-      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
-    }
-    
-    // Restrict patient routes to patients only
-    if (pathname.startsWith('/patient/') && role !== 'patient') {
-      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
-    }
-    
-    // Restrict clinic routes to clinics only
-    if (pathname.startsWith('/clinic/') && role !== 'clinic') {
-      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
-    }
-    
-    // Restrict laboratory routes to laboratories only
-    if (pathname.startsWith('/laboratory/') && role !== 'laboratory') {
-      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
-    }
-    
-    // Restrict admin routes to admins only
-    if (pathname.startsWith('/admin/') && role !== 'admin') {
-      return NextResponse.redirect(new URL('/auth/unauthorized', request.url));
-    }
-    
-    // Redirect generic dashboard based on role
-    if (pathname === '/dashboard') {
-      const redirectTo = role === 'doctor' ? '/doctor/dashboard' : 
-                        role === 'clinic' ? '/clinic/dashboard' : 
-                        role === 'laboratory' ? '/laboratory/dashboard' : 
-                        role === 'admin' ? '/admin/dashboard' : 
-                        '/patient/dashboard';
-      return NextResponse.redirect(new URL(redirectTo, request.url));
-    }
+  // Handle doctor registration redirect
+  if (pathname === '/auth/register/doctor') {
+    // Allow access to doctor registration
+    return NextResponse.next();
   }
   
-  return res;
+  // Handle patient registration redirect
+  if (pathname === '/auth/register/patient') {
+    // Allow access to patient registration
+    return NextResponse.next();
+  }
+  
+  // Handle auth pages
+  if (pathname.startsWith('/auth/')) {
+    // Allow access to all auth pages
+    return NextResponse.next();
+  }
+  
+  // Handle API routes
+  if (pathname.startsWith('/api/')) {
+    // Allow access to all API routes
+    return NextResponse.next();
+  }
+  
+  // Handle public pages
+  const publicPages = [
+    '/',
+    '/nosotros',
+    '/servicios',
+    '/precios',
+    '/medicos',
+    '/contacto',
+    '/demo',
+    '/faq',
+    '/terminos',
+    '/privacidad',
+    '/aviso-legal',
+    '/clinic/register',
+    '/laboratory/register',
+    '/laboratorios-medicos'
+  ];
+  
+  if (publicPages.includes(pathname)) {
+    return NextResponse.next();
+  }
+  
+  // For all other routes, redirect to login
+  return NextResponse.redirect(new URL('/auth/login', request.url));
 }
 
 export const config = {

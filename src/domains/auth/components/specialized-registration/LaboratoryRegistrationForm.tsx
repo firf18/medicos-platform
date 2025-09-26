@@ -1,7 +1,7 @@
 /**
  * Laboratory Registration Form Component
  * @fileoverview Registration form specifically for laboratory users
- * @compliance HIPAA-compliant laboratory data collection
+ * @compliance HIPAA-compliant laboratory data collection and Mexican medical regulations
  */
 
 'use client';
@@ -11,8 +11,36 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-import { LaboratoryRegistrationData, RegistrationFormErrors, VENEZUELAN_STATES } from '../../types/specialized-registration.types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertCircle, Building, FileText, Shield, Clock } from 'lucide-react';
+import { LaboratoryRegistrationData, RegistrationFormErrors } from '../../types/specialized-registration.types';
+
+// Mexican states for laboratory registration
+const MEXICAN_STATES = [
+  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
+  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila', 'Colima',
+  'Durango', 'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco', 'México',
+  'Michoacán', 'Morelos', 'Nayarit', 'Nuevo León', 'Oaxaca', 'Puebla',
+  'Querétaro', 'Quintana Roo', 'San Luis Potosí', 'Sinaloa', 'Sonora',
+  'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas'
+];
+
+// Laboratory types according to Mexican regulations
+const LABORATORY_TYPES = [
+  { value: 'laboratorio_clinico', label: 'Laboratorio Clínico' },
+  { value: 'laboratorio_patologico', label: 'Laboratorio Patológico' },
+  { value: 'laboratorio_genetico', label: 'Laboratorio Genético' },
+  { value: 'laboratorio_toxicologico', label: 'Laboratorio Toxicológico' },
+  { value: 'laboratorio_microbiologico', label: 'Laboratorio Microbiológico' }
+];
+
+// Business types
+const BUSINESS_TYPES = [
+  { value: 'individual', label: 'Persona Física' },
+  { value: 'corporation', label: 'Sociedad Anónima' },
+  { value: 'partnership', label: 'Sociedad de Responsabilidad Limitada' },
+  { value: 'cooperative', label: 'Cooperativa' }
+];
 
 interface LaboratoryRegistrationFormProps {
   data: Partial<LaboratoryRegistrationData>;
@@ -138,7 +166,7 @@ export const LaboratoryRegistrationForm: React.FC<LaboratoryRegistrationFormProp
             onChange={(e) => onChange('phone', e.target.value)}
             onBlur={() => onBlur('phone')}
             className={getFieldClassName('phone')}
-            placeholder="+58 212 123 4567"
+            placeholder="+52 55 1234 5678"
           />
           {errors.phone && (
             <Alert variant="destructive">
@@ -146,6 +174,237 @@ export const LaboratoryRegistrationForm: React.FC<LaboratoryRegistrationFormProp
               <AlertDescription>{errors.phone}</AlertDescription>
             </Alert>
           )}
+        </div>
+      </div>
+
+      {/* Legal Information */}
+      <div className="space-y-4 pt-4 border-t">
+        <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-600" />
+          Información Legal y Regulatoria
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="legalName">
+              Nombre Legal/Razón Social <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="legalName"
+              type="text"
+              value={data.legalName || ''}
+              onChange={(e) => onChange('legalName', e.target.value)}
+              onBlur={() => onBlur('legalName')}
+              className={getFieldClassName('legalName')}
+              placeholder="Laboratorio Clínico Ejemplo S.A. de C.V."
+              maxLength={200}
+            />
+            {errors.legalName && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.legalName}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="businessType">
+              Tipo de Empresa <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={data.businessType || ''}
+              onValueChange={(value) => onChange('businessType', value)}
+            >
+              <SelectTrigger 
+                id="businessType"
+                className={getFieldClassName('businessType')}
+                onBlur={() => onBlur('businessType')}
+              >
+                <SelectValue placeholder="Selecciona el tipo de empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                {BUSINESS_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.businessType && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.businessType}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="rfc">
+              RFC <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="rfc"
+              type="text"
+              value={data.rfc || ''}
+              onChange={(e) => onChange('rfc', e.target.value.toUpperCase())}
+              onBlur={() => onBlur('rfc')}
+              className={getFieldClassName('rfc')}
+              placeholder="XAXX010101000"
+              maxLength={13}
+            />
+            {errors.rfc && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.rfc}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="curp">
+              CURP (Opcional para personas físicas)
+            </Label>
+            <Input
+              id="curp"
+              type="text"
+              value={data.curp || ''}
+              onChange={(e) => onChange('curp', e.target.value.toUpperCase())}
+              onBlur={() => onBlur('curp')}
+              className={getFieldClassName('curp')}
+              placeholder="XXXX000000XXXXXXXX"
+              maxLength={18}
+            />
+            {errors.curp && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.curp}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="licenseNumber">
+              Número de Licencia Sanitaria <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="licenseNumber"
+              type="text"
+              value={data.licenseNumber || ''}
+              onChange={(e) => onChange('licenseNumber', e.target.value)}
+              onBlur={() => onBlur('licenseNumber')}
+              className={getFieldClassName('licenseNumber')}
+              placeholder="LS123456789"
+              maxLength={20}
+            />
+            {errors.licenseNumber && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.licenseNumber}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="licenseType">
+              Tipo de Laboratorio <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={data.licenseType || ''}
+              onValueChange={(value) => onChange('licenseType', value)}
+            >
+              <SelectTrigger 
+                id="licenseType"
+                className={getFieldClassName('licenseType')}
+                onBlur={() => onBlur('licenseType')}
+              >
+                <SelectValue placeholder="Selecciona el tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {LABORATORY_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.licenseType && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.licenseType}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="licenseExpiryDate">
+              Vencimiento de Licencia <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="licenseExpiryDate"
+              type="date"
+              value={data.licenseExpiryDate || ''}
+              onChange={(e) => onChange('licenseExpiryDate', e.target.value)}
+              onBlur={() => onBlur('licenseExpiryDate')}
+              className={getFieldClassName('licenseExpiryDate')}
+              min={new Date().toISOString().split('T')[0]}
+            />
+            {errors.licenseExpiryDate && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.licenseExpiryDate}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="licenseIssuer">
+              Emisor de la Licencia <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="licenseIssuer"
+              type="text"
+              value={data.licenseIssuer || ''}
+              onChange={(e) => onChange('licenseIssuer', e.target.value)}
+              onBlur={() => onBlur('licenseIssuer')}
+              className={getFieldClassName('licenseIssuer')}
+              placeholder="COFEPRIS, Secretaría de Salud Estatal"
+              maxLength={100}
+            />
+            {errors.licenseIssuer && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.licenseIssuer}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cofeprisRegistration">
+              Registro COFEPRIS (Opcional)
+            </Label>
+            <Input
+              id="cofeprisRegistration"
+              type="text"
+              value={data.cofeprisRegistration || ''}
+              onChange={(e) => onChange('cofeprisRegistration', e.target.value)}
+              onBlur={() => onBlur('cofeprisRegistration')}
+              className={getFieldClassName('cofeprisRegistration')}
+              placeholder="CFP123456789"
+              maxLength={20}
+            />
+            {errors.cofeprisRegistration && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.cofeprisRegistration}</AlertDescription>
+              </Alert>
+            )}
+          </div>
         </div>
       </div>
 
@@ -189,7 +448,7 @@ export const LaboratoryRegistrationForm: React.FC<LaboratoryRegistrationFormProp
               onChange={(e) => onChange('city', e.target.value)}
               onBlur={() => onBlur('city')}
               className={getFieldClassName('city')}
-              placeholder="Caracas"
+              placeholder="Ciudad de México"
               maxLength={50}
             />
             {errors.city && (
@@ -216,7 +475,7 @@ export const LaboratoryRegistrationForm: React.FC<LaboratoryRegistrationFormProp
                 <SelectValue placeholder="Selecciona el estado" />
               </SelectTrigger>
               <SelectContent>
-                {VENEZUELAN_STATES.map((state) => (
+                {MEXICAN_STATES.map((state) => (
                   <SelectItem key={state} value={state}>
                     {state}
                   </SelectItem>
@@ -227,6 +486,52 @@ export const LaboratoryRegistrationForm: React.FC<LaboratoryRegistrationFormProp
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{errors.state}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="postalCode">
+              Código Postal <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="postalCode"
+              type="text"
+              value={data.postalCode || ''}
+              onChange={(e) => onChange('postalCode', e.target.value)}
+              onBlur={() => onBlur('postalCode')}
+              className={getFieldClassName('postalCode')}
+              placeholder="01000"
+              maxLength={5}
+              pattern="[0-9]{5}"
+            />
+            {errors.postalCode && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.postalCode}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="secondaryPhone">
+              Teléfono Secundario (Opcional)
+            </Label>
+            <Input
+              id="secondaryPhone"
+              type="tel"
+              value={data.secondaryPhone || ''}
+              onChange={(e) => onChange('secondaryPhone', e.target.value)}
+              onBlur={() => onBlur('secondaryPhone')}
+              className={getFieldClassName('secondaryPhone')}
+              placeholder="+52 55 1234 5678"
+            />
+            {errors.secondaryPhone && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errors.secondaryPhone}</AlertDescription>
               </Alert>
             )}
           </div>
