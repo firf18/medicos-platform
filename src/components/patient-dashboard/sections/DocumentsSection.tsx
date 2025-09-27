@@ -97,6 +97,18 @@ export function DocumentsSection({ userId }: DocumentsSectionProps) {
 
       if (error) throw error;
 
+      // Fetch doctor information for each document
+      const doctorIds = [...new Set(data?.map(doc => doc.doctor_id).filter(Boolean) || [])];
+      const { data: doctors } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', doctorIds);
+
+      const doctorMap = doctors?.reduce((acc, doctor) => {
+        acc[doctor.id] = `${doctor.first_name} ${doctor.last_name}`;
+        return acc;
+      }, {} as Record<string, string>) || {};
+
       const formattedDocuments = data?.map(doc => ({
         id: doc.id, 
         document_type: doc.document_type,
@@ -110,7 +122,7 @@ export function DocumentsSection({ userId }: DocumentsSectionProps) {
         shared_with_caregivers: doc.shared_with_caregivers || false,
         created_at: doc.created_at,
         updated_at: doc.updated_at || doc.created_at,
-        doctor_name: doc.doctor_name || 'Dr. García Martínez'
+        doctor_name: doctorMap[doc.doctor_id] || 'Médico no disponible'
       })) || [];
 
       setDocuments(formattedDocuments);

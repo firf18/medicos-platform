@@ -41,38 +41,122 @@ export function LabResultsSection({ userId }: LabResultsSectionProps) {
 
   const fetchLabResults = async () => {
     try {
+      // First try to fetch from lab_results table (preferred)
       let query = supabase
-        .from('medical_documents')
-        .select('*')
+        .from('lab_results')
+        .select(`
+          *,
+          laboratories:laboratory_id(name),
+          doctors:doctor_id(first_name, last_name)
+        `)
         .eq('patient_id', userId)
-        .eq('document_type', 'lab_result')
-        .order('created_at', { ascending: false });
+        .order('performed_at', { ascending: false });
 
       if (filterType === 'recent') {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        query = query.gte('created_at', sevenDaysAgo.toISOString());
+        query = query.gte('performed_at', sevenDaysAgo.toISOString());
       } else if (filterType === 'critical') {
         query = query.eq('is_critical', true);
       }
 
-      const { data, error } = await query;
+      const { data: labResults, error: labError } = await query;
 
-      if (error) throw error;
+      if (!labError && labResults && labResults.length > 0) {
+        // Use lab_results table data
+        const formattedResults: LabResult[] = labResults.map(result => ({
+          id: result.id,
+          title: result.test_name,
+          description: result.result,
+          file_url: result.result_file_url,
+          created_at: result.performed_at || result.created_at,
+          is_critical: result.is_critical,
+          doctor_name: result.doctors ? 
+            `${result.doctors.first_name} ${result.doctors.last_name}` : 
+            'Médico no disponible',
+          test_type: result.laboratories?.name || 'Laboratorio',
+          results_data: parseLabResultData(result.result)
+        }));
+        setResults(formattedResults);
+      } else {
+        // Fallback to medical_documents table
+        let fallbackQuery = supabase
+          .from('medical_documents')
+          .select(`
+            *,
+            doctors:doctor_id(first_name, last_name)
+          `)
+          .eq('patient_id', userId)
+          .eq('document_type', 'lab_result')
+          .order('created_at', { ascending: false });
 
-      const formattedResults: LabResult[] = data?.map(result => ({
-        ...result,
-        doctor_name: 'Dr. García Martínez', // Mock data for now
-        test_type: 'Análisis general', // Mock data for now
-        results_data: generateMockResultsData(result.title)
-      })) || [];
+        if (filterType === 'recent') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          fallbackQuery = fallbackQuery.gte('created_at', sevenDaysAgo.toISOString());
+        } else if (filterType === 'critical') {
+          fallbackQuery = fallbackQuery.eq('is_critical', true);
+        }
 
-      setResults(formattedResults);
+        const { data: documents, error: docError } = await fallbackQuery;
+
+        if (docError) throw docError;
+
+        const formattedResults: LabResult[] = documents?.map(result => ({
+          id: result.id,
+          title: result.title,
+          description: result.description,
+          file_url: result.file_url,
+          created_at: result.created_at,
+          is_critical: result.is_critical,
+          doctor_name: result.doctors ? 
+            `${result.doctors.first_name} ${result.doctors.last_name}` : 
+            'Médico no disponible',
+          test_type: 'Análisis general',
+          results_data: generateMockResultsData(result.title)
+        })) || [];
+
+        setResults(formattedResults);
+      }
     } catch (error) {
       console.error('Error fetching lab results:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to parse real lab result data
+  const parseLabResultData = (resultText: string) => {
+    if (!resultText) return generateMockResultsData('Resultado General');
+    
+    // Try to parse structured data if it's JSON
+    try {
+      const parsed = JSON.parse(resultText);
+      if (typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch {
+      // Not JSON, continue with text parsing
+    }
+
+    // Parse text-based results
+    const lines = resultText.split('\n').filter(line => line.trim());
+    const results: Record<string, any> = {};
+    
+    lines.forEach(line => {
+      const match = line.match(/([^:]+):\s*([^\s]+)\s*([^\s]*)\s*(.*)/);
+      if (match) {
+        const [, name, value, unit, range] = match;
+        results[name.trim()] = {
+          value: parseFloat(value) || value,
+          unit: unit.trim() || '',
+          range: range.trim() || 'Normal',
+          status: 'normal' // Default status
+        };
+      }
+    });
+
+    return Object.keys(results).length > 0 ? results : generateMockResultsData('Resultado General');
   };
 
   // Mock function to generate sample lab results data

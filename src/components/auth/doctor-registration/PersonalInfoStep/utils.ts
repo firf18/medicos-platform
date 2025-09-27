@@ -70,18 +70,48 @@ export const validatePasswordStrength = (password: string): PasswordStrength => 
   };
 };
 
-// Verificar disponibilidad de email (simulado)
+// Verificar disponibilidad de email (API real)
 export const checkEmailAvailability = async (email: string): Promise<{isAvailable: boolean}> => {
-  // En un entorno real, esto haría una llamada API
-  // Simulamos una demora de red
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // Emails reservados para testing
-  const reservedEmails = ['admin@example.com', 'test@example.com', 'doctor@example.com'];
-  
-  return {
-    isAvailable: !reservedEmails.includes(email.toLowerCase())
-  };
+  try {
+    const res = await fetch('/api/auth/register/doctor/check-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    
+    if (!res.ok) {
+      console.error('checkEmailAvailability API error:', res.status, res.statusText);
+      return { isAvailable: false };
+    }
+    
+    const data = await res.json();
+    return { isAvailable: !!data.available };
+  } catch (e) {
+    console.error('checkEmailAvailability error:', e);
+    return { isAvailable: false };
+  }
+};
+
+// Verificar disponibilidad de teléfono (API real)
+export const checkPhoneAvailability = async (phone: string): Promise<{isAvailable: boolean}> => {
+  try {
+    const res = await fetch('/api/auth/register/doctor/check-phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    
+    if (!res.ok) {
+      console.error('checkPhoneAvailability API error:', res.status, res.statusText);
+      return { isAvailable: false };
+    }
+    
+    const data = await res.json();
+    return { isAvailable: !!data.available };
+  } catch (e) {
+    console.error('checkPhoneAvailability error:', e);
+    return { isAvailable: false };
+  }
 };
 
 // Obtener clases CSS para el campo de formulario

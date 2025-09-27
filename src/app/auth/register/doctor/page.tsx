@@ -1,29 +1,23 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useCallback, useState } from 'react';
 
-// Importar componentes de los pasos de registro
+// Importar componentes de los pasos de registro (modulares)
 import PersonalInfoStep from '@/components/auth/doctor-registration/PersonalInfoStep';
-import ProfessionalInfoStep from '@/components/auth/doctor-registration/ProfessionalInfoStep';
-import LicenseVerificationStep from '@/components/auth/doctor-registration/LicenseVerificationStep';
+import { ProfessionalInfoStep } from '@/domains/auth/components/professional-info';
 import SpecialtySelectionStep from '@/components/auth/doctor-registration/SpecialtySelectionStep';
 import DiditVerificationMain from '@/components/auth/doctor-registration/DiditVerificationMain';
-import DashboardConfigurationStep from '@/components/auth/doctor-registration/DashboardConfigurationStep';
-import FinalReviewStep from '@/components/auth/doctor-registration/FinalReviewStep';
 
 import { RegistrationStep } from '@/types/medical/specialties';
 import { getSpecialtyById } from '@/lib/medical-specialties/specialty-utils';
-import { useDoctorRegistration } from '@/domains/auth/hooks/useDoctorRegistration';
-import { useAutoCleanup } from '@/hooks/useAutoCleanup';
-import { errorMonitor } from '@/lib/monitoring/frontend-error-monitor';
-import { EmailVerificationProvider, useEmailVerification } from '@/contexts/EmailVerificationContext';
-import { emailVerificationTracker } from '@/lib/email-verification/verification-tracker';
-import { phoneVerificationTracker } from '@/lib/phone-verification/phone-verification-tracker';
+import { useRegistrationSession } from '@/hooks/useRegistrationSession';
+import { registrationSessionManager } from '@/lib/registration/registration-session-manager';
+import { ErrorMessage } from '@/components/registration/ErrorMessage';
+import { EmailVerificationProvider } from '@/contexts/EmailVerificationContext';
+import { DoctorRegistrationProvider } from '@/contexts/DoctorRegistrationContext';
 
 const REGISTRATION_STEPS: { step: RegistrationStep; title: string; description: string }[] = [
   {
@@ -48,162 +42,232 @@ const REGISTRATION_STEPS: { step: RegistrationStep; title: string; description: 
   }
 ];
 
+import { useDoctorRegistration } from '@/contexts/DoctorRegistrationContext';
+
 // Componente interno que usa el contexto
 function DoctorRegistrationPageContent() {
-  // Estado para rastrear la validación del paso actual
-  const [currentStepValid, setCurrentStepValid] = useState(false);
-  
-  // Usar el contexto de verificación de email y teléfono
-  const { 
-    isEmailVerified, 
-    verifiedEmail, 
-    isPhoneVerified, 
-    verifiedPhone,
-    setIsPhoneVerified,
-    setVerifiedPhone
-  } = useEmailVerification();
+  // Usar el nuevo contexto para los datos del formulario
+  const { registrationData, updateRegistrationData } = useDoctorRegistration();
 
-
-  // Usar el hook personalizado para el registro de médicos
+  // Usar el hook de sesión de registro mejorado para la lógica de pasos
   const {
-    registrationData,
-    progress,
-    isSubmitting,
-    updateData,
+    sessionId,
+    currentStep,
+    completedSteps,
+    isSessionActive,
+    // data: registrationData, // No se usa de aquí
+    // updateData, // No se usa de aquí
     goToNextStep,
     goToPreviousStep,
-    handleStepComplete,
-    handleStepError,
-    submitRegistration,
-    canProceedNext,
-    formErrors
-  } = useDoctorRegistration({
-    onRegistrationComplete: (data) => {
-      // Registro completado
-    },
-    onRegistrationError: (error) => {
-      console.error('Error en registro:', error);
-    }
-  });
+    completeStep,
+    validateCurrentStep,
+    markVerificationComplete,
+    recordVerificationAttempt,
+    canAttemptVerification,
+    getVerificationCooldown,
+    clearSession,
+    extendSession
+  } = useRegistrationSession();
 
-  // Limpieza automática de datos
-  useAutoCleanup({
-    onCleanup: () => {
-      // Limpiar datos de registro cuando el usuario sale del proceso
+  // Limpiar cualquier persistencia automática del sistema antiguo
+  useEffect(() => {
+    // Limpiar datos del sistema de persistencia automática
+    if (typeof window !== 'undefined') {
       localStorage.removeItem('doctor_registration_progress');
       localStorage.removeItem('doctor_registration_step_progress');
       localStorage.removeItem('doctor_registration_session_timestamp');
-    },
-    enabled: true
-  });
+      localStorage.removeItem('registration_data');
+      localStorage.removeItem('registration_progress');
+    }
+  }, []);
 
-  // Monitorear cambios en registrationData para validación del paso personal_info
+  // Estado para manejo de errores
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStepValid, setCurrentStepValid] = useState(false);
+
+  // Manejo de timeout de sesión
   useEffect(() => {
-    if (progress.currentStep === 'personal_info') {
-      const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'];
-      const hasAllFields = requiredFields.every(field => {
-        const value = registrationData[field as keyof typeof registrationData];
-        return value && value.toString().trim() !== '';
-      });
+    const handleSessionTimeout = () => {
+      alert('Su sesión de registro ha expirado por inactividad. Será redirigido al inicio.');
+      window.location.href = '/auth/register/doctor';
+    };
+    
+    // Escuchar evento de timeout
+    window.addEventListener('registration-session-timeout', handleSessionTimeout);
+    
+    return () => {
+      window.removeEventListener('registration-session-timeout', handleSessionTimeout);
+    };
+  }, []);
 
-      const passwordsMatch = registrationData.password === registrationData.confirmPassword;
-      const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registrationData.email || '');
-      const phoneValid = /^\+58\d{10}$/.test(registrationData.phone || '');
-      const passwordValid = (registrationData.password || '').length >= 8;
-      
-      // Verificar que el email esté verificado
-      const emailVerified = isEmailVerified && verifiedEmail === registrationData.email;
-      
-      // Verificar que el teléfono esté verificado
-      const phoneVerified = isPhoneVerified && verifiedPhone === registrationData.phone;
-      
-      const isValid = hasAllFields && passwordsMatch && emailValid && phoneValid && passwordValid && emailVerified && phoneVerified;
-      
+  // Resetear timeout cuando hay actividad del usuario
+  useEffect(() => {
+    const resetTimeout = () => {
+      extendSession();
+    };
+    
+    // Escuchar eventos de actividad del usuario
+    window.addEventListener('mousemove', resetTimeout);
+    window.addEventListener('keypress', resetTimeout);
+    window.addEventListener('click', resetTimeout);
+    
+    return () => {
+      window.removeEventListener('mousemove', resetTimeout);
+      window.removeEventListener('keypress', resetTimeout);
+      window.removeEventListener('click', resetTimeout);
+    };
+  }, [extendSession]);
+
+  // Validación del paso actual
+  useEffect(() => {
+    if (registrationData) {
+      const isValid = validateCurrentStep();
       setCurrentStepValid(isValid);
     }
-  }, [registrationData, progress.currentStep, isEmailVerified, verifiedEmail, isPhoneVerified, verifiedPhone, setCurrentStepValid]);
-
-  // Log de verificación solo cuando cambia el estado de verificación (con debounce)
-  const [lastLogTime, setLastLogTime] = useState(0);
-  useEffect(() => {
-    if (progress.currentStep === 'personal_info') {
-      const emailVerified = isEmailVerified && verifiedEmail === registrationData.email;
-      const phoneVerified = isPhoneVerified && verifiedPhone === registrationData.phone;
-      
-      // Solo loggear si han pasado al menos 2 segundos desde el último log
-      const now = Date.now();
-      if ((!emailVerified || !phoneVerified) && (now - lastLogTime > 2000)) {
-        console.log('⚠️ Verificación pendiente:', {
-          emailVerified,
-          phoneVerified,
-          isEmailVerified,
-          verifiedEmail,
-          isPhoneVerified,
-          verifiedPhone,
-          currentEmail: registrationData.email,
-          currentPhone: registrationData.phone
-        });
-        setLastLogTime(now);
-      }
-    }
-  }, [isEmailVerified, verifiedEmail, isPhoneVerified, verifiedPhone, registrationData.email, registrationData.phone, progress.currentStep, lastLogTime]);
-
-  // Calcular progreso actual
-  const currentStepIndex = REGISTRATION_STEPS.findIndex(s => s.step === progress.currentStep);
-  const isLastStep = currentStepIndex === REGISTRATION_STEPS.length - 1;
+  }, [registrationData, currentStep, validateCurrentStep]);
   
   // Log solo cuando el botón está deshabilitado sin razón aparente
   if (isSubmitting && !currentStepValid) {
     console.log('🔘 Botón deshabilitado:', {
       isSubmitting,
       currentStepValid,
-      currentStep: progress.currentStep
+      currentStep: currentStep
     });
   }
   
   
 
-  // Wrapper para onFinalSubmit que ignora el return value
-  const handleFinalSubmitWrapper = async (): Promise<void> => {
+  // Función para manejar el submit final
+  const handleFinalSubmit = useCallback(async (): Promise<void> => {
+    setIsSubmitting(true);
+    
     try {
-      await submitRegistration();
+      // Obtener datos completos del session manager
+      const finalData = registrationSessionManager.getData();
+      
+      if (!finalData) {
+        throw new Error('No hay datos para registrar');
+      }
+      
+      // Validar datos finales
+      const isFinalValid = registrationSessionManager.validateStep('identity_verification', finalData);
+      if (!isFinalValid) {
+        throw new Error('Datos inválidos para registro final');
+      }
+      
+      // Solo ahora guardar en Supabase
+      const response = await fetch('/api/auth/register/doctor/finalize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(finalData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        throw new Error(errorData.error || 'Error al procesar el registro');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Limpiar datos de sesión
+        clearSession();
+        // Redirigir a éxito
+        window.location.href = '/auth/login/medicos?message=registration-completed';
+      } else {
+        throw new Error(result.error || 'Error en registro final');
+      }
     } catch (error) {
-      console.error('Error en submitRegistration:', error);
+      console.error('Error finalizando registro:', error);
+      alert('Error al finalizar el registro. Por favor intente nuevamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [clearSession]);
+
+  // Función para manejar actualización de datos sin guardar en Supabase
+  const handleDataUpdate = useCallback((newData: Partial<typeof registrationData>) => {
+    // Solo actualizar en memoria
+    updateRegistrationData(newData);
+  }, [updateRegistrationData]);
+
+  // Función para manejar navegación mejorada
+  const handleGoToNextStep = useCallback(() => {
+    const isValid = validateCurrentStep();
+    if (!isValid) {
+      alert('Por favor complete todos los campos requeridos correctamente');
+      return;
+    }
+    
+    // Solo avanzar si todo es válido
+    const success = goToNextStep();
+    if (success) {
+      // Marcar paso como completado
+      completeStep(currentStep);
+    }
+  }, [validateCurrentStep, goToNextStep, completeStep, currentStep]);
+
+  const handleGoToPreviousStep = useCallback(() => {
+    goToPreviousStep();
+  }, [goToPreviousStep]);
+
+  // Calcular progreso actual
+  const currentStepIndex = REGISTRATION_STEPS.findIndex(s => s.step === currentStep);
+  const isLastStep = currentStepIndex === REGISTRATION_STEPS.length - 1;
+
+  // Crear objeto formErrors compatible
+  const formErrorsObject = {
+    hasErrors: Object.keys(fieldErrors).length > 0,
+    getFieldError: (field: string) => fieldErrors[field] || undefined,
+    setFieldError: (field: string, error: string) => {
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    },
+    clearFieldError: (field: string) => {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    },
+    hasFieldError: (field: string) => !!fieldErrors[field],
+    getFieldErrorElement: (field: string) => {
+      const error = fieldErrors[field];
+      return error ? <div className="text-red-500 text-sm mt-1">{error}</div> : null;
     }
   };
-
-  // Función para validar si se puede proceder al siguiente paso
-  const canProceedToNext = useCallback(async (): Promise<boolean> => {
-    if (progress.currentStep === 'personal_info') {
-      // Para el paso de información personal, usar el estado de validación del componente
-      return currentStepValid;
-    }
-
-    // Para otros pasos, usar la lógica estándar
-    return canProceedNext;
-  }, [progress.currentStep, currentStepValid, canProceedNext]);
 
   // Renderizar el paso actual
   const renderCurrentStep = () => {
     const commonProps = {
       data: registrationData,
-      updateData,
-      onStepComplete: handleStepComplete,
-      onStepError: handleStepError,
+      updateData: handleDataUpdate,
+      onStepComplete: completeStep,
+      onStepError: (error: string) => {
+        console.error('Error en paso:', error);
+        setFieldErrors({ general: error });
+      },
       isLoading: isSubmitting,
-      onFinalSubmit: handleFinalSubmitWrapper,
-      formErrors,
-      onNext: goToNextStep,
-      onPrevious: goToPreviousStep
+      onFinalSubmit: handleFinalSubmit,
+      formErrors: formErrorsObject,
+      onNext: handleGoToNextStep,
+      onPrevious: handleGoToPreviousStep
     };
 
-    switch (progress.currentStep) {
+    switch (currentStep) {
       case 'personal_info':
-        return <PersonalInfoStep {...commonProps} />;
+        return <PersonalInfoStep 
+          {...commonProps} 
+          formData={registrationData}
+          onStepError={(error: string) => {
+            console.error('Error en paso personal:', error);
+            setFieldErrors({ general: error });
+          }}
+        />;
       case 'professional_info':
         return <ProfessionalInfoStep {...commonProps} />;
-      case 'license_verification':
-        return <LicenseVerificationStep {...commonProps} />;
       case 'specialty_selection':
         return <SpecialtySelectionStep {...commonProps} />;
       case 'identity_verification':
@@ -214,12 +278,24 @@ function DoctorRegistrationPageContent() {
   };
 
   // Obtener información de la especialidad seleccionada
-  const selectedSpecialty = registrationData.specialtyId 
+  const selectedSpecialty = registrationData?.specialtyId 
     ? getSpecialtyById(registrationData.specialtyId)
     : null;
 
   // Detectar si estamos en la fase 3 (selección de especialidad) para usar layout especial
   const isSpecialtySelection = currentStepIndex === 2; // Índice 2 = Fase 3
+
+  // Mostrar loading si los datos aún no están disponibles
+  if (!registrationData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando formulario de registro...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isSpecialtySelection) {
     // Layout de pantalla completa para selección de especialidad
@@ -269,7 +345,7 @@ function DoctorRegistrationPageContent() {
             {currentStepIndex > 0 ? (
               <Button
                 variant="outline"
-                onClick={goToPreviousStep}
+                onClick={handleGoToPreviousStep}
                 disabled={isSubmitting}
                 className="px-6 py-2 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-gray-200 hover:border-gray-300 bg-white/80 backdrop-blur-sm"
               >
@@ -287,112 +363,24 @@ function DoctorRegistrationPageContent() {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Validación manual simple
-                const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'];
-                const hasAllFields = requiredFields.every(field => {
-                  const value = registrationData[field as keyof typeof registrationData];
-                  return value && value.toString().trim() !== '';
-                });
-                
-                const passwordsMatch = registrationData.password === registrationData.confirmPassword;
-                const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registrationData.email || '');
-                const phoneValid = /^\+58\d{10}$/.test(registrationData.phone || '');
-                const passwordValid = (registrationData.password || '').length >= 8;
-                
-                // VALIDACIÓN ESTRICTA - TODOS LOS CAMPOS DEBEN ESTAR COMPLETOS Y VÁLIDOS
-                const emailVerified = isEmailVerified && verifiedEmail === registrationData.email;
-                const phoneVerified = isPhoneVerified && verifiedPhone === registrationData.phone;
-                
-                // VERIFICACIÓN ROBUSTA CON TRACKER - NO SE PUEDE BYPASSEAR
-                const realEmailVerification = emailVerificationTracker.isEmailVerified(registrationData.email);
-                const realPhoneVerification = phoneVerificationTracker.isPhoneVerified(registrationData.phone);
-                
-                console.log('🔍 VALIDACIÓN ESTRICTA INICIADA:', {
-                  hasAllFields,
-                  passwordsMatch,
-                  emailValid,
-                  phoneValid,
-                  passwordValid,
-                  emailVerified,
-                  phoneVerified,
-                  realEmailVerification,
-                  realPhoneVerification,
-                  isEmailVerified,
-                  verifiedEmail,
-                  currentEmail: registrationData.email,
-                  isPhoneVerified,
-                  verifiedPhone,
-                  currentPhone: registrationData.phone
-                });
-
-                // 1. VALIDAR CAMPOS OBLIGATORIOS
-                if (!hasAllFields) {
-                  alert('❌ FALTA: Por favor completa todos los campos requeridos');
+                if (!currentStepValid) {
+                  alert('❌ Por favor complete todos los campos requeridos correctamente');
                   return;
                 }
                 
-                // 2. VALIDAR CONTRASEÑAS
-                if (!passwordsMatch) {
-                  alert('❌ CONTRASEÑAS NO COINCIDEN: Las contraseñas deben ser iguales');
-                  return;
-                }
-                
-                if (!passwordValid) {
-                  alert('❌ CONTRASEÑA DÉBIL: La contraseña debe tener al menos 8 caracteres');
-                  return;
-                }
-                
-                // 3. VALIDAR FORMATOS
-                if (!emailValid) {
-                  alert('❌ FORMATO INVÁLIDO: Por favor ingresa un email válido');
-                  return;
-                }
-                
-                if (!phoneValid) {
-                  alert('❌ FORMATO INVÁLIDO: Por favor ingresa un teléfono válido (+58XXXXXXXXX)');
-                  return;
-                }
-                
-                // 4. VALIDAR VERIFICACIÓN DE EMAIL (OBLIGATORIO - NO SE PUEDE BYPASSEAR)
-                if (!realEmailVerification) {
-                  console.log('❌ EMAIL NO VERIFICADO (TRACKER):', {
-                    realEmailVerification,
-                    isEmailVerified,
-                    verifiedEmail,
-                    currentEmail: registrationData.email,
-                    matches: verifiedEmail === registrationData.email
-                  });
-                  alert('❌ EMAIL NO VERIFICADO: Debes verificar tu email con el código de verificación antes de continuar');
-                  return;
-                }
-
-                // 5. VALIDAR VERIFICACIÓN DE TELÉFONO (OBLIGATORIO - NO SE PUEDE BYPASSEAR)
-                if (!realPhoneVerification) {
-                  console.log('❌ TELÉFONO NO VERIFICADO (TRACKER):', {
-                    realPhoneVerification,
-                    isPhoneVerified,
-                    verifiedPhone,
-                    currentPhone: registrationData.phone,
-                    matches: verifiedPhone === registrationData.phone
-                  });
-                  alert('❌ TELÉFONO NO VERIFICADO: Debes verificar tu teléfono antes de continuar');
-                  return;
-                }
-
-                // 6. VALIDACIÓN FINAL - TODOS LOS REQUISITOS CUMPLIDOS
                 console.log('✅ TODAS LAS VALIDACIONES PASARON - PERMITIENDO AVANZAR');
                 
                 try {
                   if (isLastStep) {
-                    await handleFinalSubmitWrapper();
+                    await handleFinalSubmit();
                   } else {
-                    goToNextStep();
+                    handleGoToNextStep();
                   }
                 } catch (error) {
                   console.error('Error en onClick del botón:', error);
                 }
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !currentStepValid}
               className="registration-button px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
@@ -492,6 +480,14 @@ function DoctorRegistrationPageContent() {
                 </div>
               </div>
               <div className="p-8">
+            {Object.keys(fieldErrors).length > 0 && (
+              <ErrorMessage
+                title="Corrija los siguientes errores"
+                message="Algunos campos requieren atención antes de continuar"
+                type="error"
+                className="mb-6"
+              />
+            )}
             {renderCurrentStep()}
               </div>
             </div>
@@ -503,7 +499,7 @@ function DoctorRegistrationPageContent() {
           {currentStepIndex > 0 ? (
             <Button
               variant="outline"
-              onClick={goToPreviousStep}
+              onClick={handleGoToPreviousStep}
               disabled={isSubmitting}
                 className="px-8 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border-gray-200 hover:border-gray-300 bg-white/80 backdrop-blur-sm"
             >
@@ -519,112 +515,24 @@ function DoctorRegistrationPageContent() {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Validación manual simple
-                const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'];
-                const hasAllFields = requiredFields.every(field => {
-                  const value = registrationData[field as keyof typeof registrationData];
-                  return value && value.toString().trim() !== '';
-                });
-                
-                const passwordsMatch = registrationData.password === registrationData.confirmPassword;
-                const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registrationData.email || '');
-                const phoneValid = /^\+58\d{10}$/.test(registrationData.phone || '');
-                const passwordValid = (registrationData.password || '').length >= 8;
-                
-                // VALIDACIÓN ESTRICTA - TODOS LOS CAMPOS DEBEN ESTAR COMPLETOS Y VÁLIDOS
-                const emailVerified = isEmailVerified && verifiedEmail === registrationData.email;
-                const phoneVerified = isPhoneVerified && verifiedPhone === registrationData.phone;
-                
-                // VERIFICACIÓN ROBUSTA CON TRACKER - NO SE PUEDE BYPASSEAR
-                const realEmailVerification = emailVerificationTracker.isEmailVerified(registrationData.email);
-                const realPhoneVerification = phoneVerificationTracker.isPhoneVerified(registrationData.phone);
-                
-                console.log('🔍 VALIDACIÓN ESTRICTA INICIADA (BOTÓN 2):', {
-                  hasAllFields,
-                  passwordsMatch,
-                  emailValid,
-                  phoneValid,
-                  passwordValid,
-                  emailVerified,
-                  phoneVerified,
-                  realEmailVerification,
-                  realPhoneVerification,
-                  isEmailVerified,
-                  verifiedEmail,
-                  currentEmail: registrationData.email,
-                  isPhoneVerified,
-                  verifiedPhone,
-                  currentPhone: registrationData.phone
-                });
-
-                // 1. VALIDAR CAMPOS OBLIGATORIOS
-                if (!hasAllFields) {
-                  alert('❌ FALTA: Por favor completa todos los campos requeridos');
+                if (!currentStepValid) {
+                  alert('❌ Por favor complete todos los campos requeridos correctamente');
                   return;
                 }
                 
-                // 2. VALIDAR CONTRASEÑAS
-                if (!passwordsMatch) {
-                  alert('❌ CONTRASEÑAS NO COINCIDEN: Las contraseñas deben ser iguales');
-                  return;
-                }
-                
-                if (!passwordValid) {
-                  alert('❌ CONTRASEÑA DÉBIL: La contraseña debe tener al menos 8 caracteres');
-                  return;
-                }
-                
-                // 3. VALIDAR FORMATOS
-                if (!emailValid) {
-                  alert('❌ FORMATO INVÁLIDO: Por favor ingresa un email válido');
-                  return;
-                }
-                
-                if (!phoneValid) {
-                  alert('❌ FORMATO INVÁLIDO: Por favor ingresa un teléfono válido (+58XXXXXXXXX)');
-                  return;
-                }
-                
-                // 4. VALIDAR VERIFICACIÓN DE EMAIL (OBLIGATORIO - NO SE PUEDE BYPASSEAR)
-                if (!realEmailVerification) {
-                  console.log('❌ EMAIL NO VERIFICADO (BOTÓN 2 - TRACKER):', {
-                    realEmailVerification,
-                    isEmailVerified,
-                    verifiedEmail,
-                    currentEmail: registrationData.email,
-                    matches: verifiedEmail === registrationData.email
-                  });
-                  alert('❌ EMAIL NO VERIFICADO: Debes verificar tu email con el código de verificación antes de continuar');
-                  return;
-                }
-
-                // 5. VALIDAR VERIFICACIÓN DE TELÉFONO (OBLIGATORIO - NO SE PUEDE BYPASSEAR)
-                if (!realPhoneVerification) {
-                  console.log('❌ TELÉFONO NO VERIFICADO (BOTÓN 2 - TRACKER):', {
-                    realPhoneVerification,
-                    isPhoneVerified,
-                    verifiedPhone,
-                    currentPhone: registrationData.phone,
-                    matches: verifiedPhone === registrationData.phone
-                  });
-                  alert('❌ TELÉFONO NO VERIFICADO: Debes verificar tu teléfono antes de continuar');
-                  return;
-                }
-
-                // 6. VALIDACIÓN FINAL - TODOS LOS REQUISITOS CUMPLIDOS
-                console.log('✅ TODAS LAS VALIDACIONES PASARON (BOTÓN 2) - PERMITIENDO AVANZAR');
+                console.log('✅ TODAS LAS VALIDACIONES PASARON - PERMITIENDO AVANZAR');
                 
                 try {
                   if (isLastStep) {
-                    await handleFinalSubmitWrapper();
+                    await handleFinalSubmit();
                   } else {
-                    goToNextStep();
+                    handleGoToNextStep();
                   }
                 } catch (error) {
                   console.error('Error en onClick del botón:', error);
                 }
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !currentStepValid}
               className="registration-button px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
@@ -647,7 +555,7 @@ function DoctorRegistrationPageContent() {
   );
 }
 
-// Componente principal que envuelve con el provider
+// Componente principal
 export default function DoctorRegistrationPage() {
   return (
     <EmailVerificationProvider>

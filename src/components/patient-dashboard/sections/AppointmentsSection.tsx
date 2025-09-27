@@ -62,11 +62,29 @@ export function AppointmentsSection({ userId }: AppointmentsSectionProps) {
 
       if (error) throw error;
 
-      const formattedAppointments = data?.map(apt => ({
-        ...apt,
-        doctor_name: 'Dr. García Martínez', // Mock data for now
-        doctor_specialty: 'Cardiología' // Mock data for now
-      })) || [];
+      // Fetch doctor information for each appointment
+      const doctorIds = [...new Set(data?.map(apt => apt.doctor_id) || [])];
+      const { data: doctors } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, specialty')
+        .in('id', doctorIds);
+
+      const doctorMap = doctors?.reduce((acc, doctor) => {
+        acc[doctor.id] = {
+          name: `${doctor.first_name} ${doctor.last_name}`,
+          specialty: doctor.specialty || 'Medicina General'
+        };
+        return acc;
+      }, {} as Record<string, { name: string; specialty: string }>) || {};
+
+      const formattedAppointments = data?.map(apt => {
+        const doctor = doctorMap[apt.doctor_id];
+        return {
+          ...apt,
+          doctor_name: doctor?.name || 'Médico no disponible',
+          doctor_specialty: doctor?.specialty || 'Medicina General'
+        };
+      }) || [];
 
       setAppointments(formattedAppointments);
     } catch (error) {

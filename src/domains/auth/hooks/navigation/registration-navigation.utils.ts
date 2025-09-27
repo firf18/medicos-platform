@@ -11,10 +11,7 @@ export const STEP_ORDER: RegistrationStep[] = [
   'personal_info',
   'professional_info',
   'specialty_selection',
-  'license_verification',
   'identity_verification',
-  'dashboard_configuration',
-  'final_review',
   'completed'
 ];
 
@@ -23,10 +20,7 @@ export const STEP_ROUTES: Record<RegistrationStep, string> = {
   personal_info: '/auth/register/doctor',
   professional_info: '/auth/register/doctor?step=professional',
   specialty_selection: '/auth/register/doctor?step=specialty',
-  license_verification: '/auth/register/doctor?step=license',
   identity_verification: '/auth/register/doctor?step=identity',
-  dashboard_configuration: '/auth/register/doctor?step=dashboard',
-  final_review: '/auth/register/doctor?step=review',
   completed: '/auth/register/doctor/success'
 };
 

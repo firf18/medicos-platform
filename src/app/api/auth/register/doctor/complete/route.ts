@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Registro verificado y listo para completar');
 
     // Log de inicio de completación
-    logSecurityEvent('doctor_completion_started', {
+    logSecurityEvent('doctor_completion_started', 'Doctor registration completion started', {
       verification_token: verification_token,
       timestamp: new Date().toISOString()
     });
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (!result.success) {
       console.error('❌ Error completando registro:', result.error);
       
-      logSecurityEvent('doctor_completion_failed', {
+      logSecurityEvent('doctor_completion_failed', 'Doctor registration completion failed', {
         verification_token: verification_token,
         error: result.error,
         timestamp: new Date().toISOString()
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       email: result.user?.email
     });
 
-    logSecurityEvent('doctor_completion_success', {
+    logSecurityEvent('doctor_completion_success', 'Doctor registration completion successful', {
       userId: result.user?.id,
       email: result.user?.email,
       verification_token: verification_token,

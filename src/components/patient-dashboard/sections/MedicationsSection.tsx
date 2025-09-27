@@ -59,10 +59,42 @@ export function MedicationsSection({ userId }: MedicationsSectionProps) {
 
       if (error) throw error;
 
+      // Fetch doctor information and reminders for each medication
+      const doctorIds = [...new Set(data?.map(med => med.doctor_id).filter(Boolean) || [])];
+      const medicationIds = data?.map(med => med.id) || [];
+
+      const [doctorsResult, remindersResult] = await Promise.allSettled([
+        doctorIds.length > 0 ? supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', doctorIds) : Promise.resolve({ data: [] }),
+        
+        medicationIds.length > 0 ? supabase
+          .from('medication_reminders')
+          .select('*')
+          .in('medication_id', medicationIds) : Promise.resolve({ data: [] })
+      ]);
+
+      const doctors = doctorsResult.status === 'fulfilled' ? doctorsResult.value.data || [] : [];
+      const reminders = remindersResult.status === 'fulfilled' ? remindersResult.value.data || [] : [];
+
+      const doctorMap = doctors.reduce((acc, doctor) => {
+        acc[doctor.id] = `${doctor.first_name} ${doctor.last_name}`;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const remindersMap = reminders.reduce((acc, reminder) => {
+        if (!acc[reminder.medication_id]) {
+          acc[reminder.medication_id] = [];
+        }
+        acc[reminder.medication_id].push(reminder);
+        return acc;
+      }, {} as Record<string, any[]>);
+
       const formattedMedications = data?.map(med => ({
         ...med,
-        doctor_name: 'Dr. García Martínez', // Mock data for now
-        reminders: [] // Mock data for now
+        doctor_name: doctorMap[med.doctor_id] || 'Médico no disponible',
+        reminders: remindersMap[med.id] || []
       })) || [];
 
       setMedications(formattedMedications);

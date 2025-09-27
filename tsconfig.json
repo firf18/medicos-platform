@@ -64,6 +64,7 @@
     "src/features/auth/contexts/**",
     "src/lib/didit-integration.ts",
     "src/app/chat.tsx",
-    "src/app/chat/page.tsx"
+    "src/app/chat/page.tsx",
+    "backups/**"
   ]
 }

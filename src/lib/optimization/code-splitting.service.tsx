@@ -52,9 +52,9 @@ export class CodeSplittingService {
         }
       ),
 
-      // High priority - preloaded after personal info
+      // High priority - preloaded after personal info (modular)
       ProfessionalInfoStep: this.createOptimizedSplit(
-        () => import('@/components/auth/doctor-registration/ProfessionalInfoStep'),
+        () => import('@/domains/auth/components/professional-info'),
         {
           priority: 'high',
           chunkName: 'doctor-registration-professional',
@@ -73,9 +73,9 @@ export class CodeSplittingService {
         }
       ),
 
-      // Low priority - loaded last
+      // Low priority - loaded last (modular)
       FinalReviewStep: this.createOptimizedSplit(
-        () => import('@/components/auth/doctor-registration/FinalReviewStep'),
+        () => import('@/domains/auth/components/final-review'),
         {
           priority: 'low',
           chunkName: 'doctor-registration-review',

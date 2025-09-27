@@ -34,10 +34,17 @@ class EmailVerificationTracker {
 
   /**
    * Iniciar proceso de verificación
+   * @returns true si se creó un nuevo registro, false si ya existía
    */
-  public startVerification(email: string): void {
+  public startVerification(email: string): boolean {
     console.log('🔐 [VERIFICATION-TRACKER] Iniciando verificación para:', email);
     
+    // Evitar duplicados si ya existe un registro para este email
+    if (this.verifications.has(email)) {
+      console.log('ℹ️ [VERIFICATION-TRACKER] Registro ya existente, omitiendo creación:', email);
+      return false;
+    }
+
     this.verifications.set(email, {
       email,
       isVerified: false,
@@ -47,6 +54,9 @@ class EmailVerificationTracker {
       attempts: 0,
       lastAttemptTimestamp: null
     });
+    
+    console.log('✅ [VERIFICATION-TRACKER] Registro creado para:', email, 'Total registros:', this.verifications.size);
+    return true;
   }
 
   /**

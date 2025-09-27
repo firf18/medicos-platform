@@ -39,7 +39,23 @@ export type SecurityEventType =
   | 'didit_verification_failed'
   | 'didit_webhook_received'
   | 'doctor_verification_session_created'
-  | 'doctor_verification_status_checked';
+  | 'doctor_verification_status_checked'
+  | 'doctor_completion_started'
+  | 'doctor_completion_failed'
+  | 'doctor_completion_success'
+  | 'doctor_temp_registration_started'
+  | 'doctor_temp_registration_failed'
+  | 'doctor_temp_registration_completed'
+  | 'doctor_unified_registration_started'
+  | 'doctor_unified_registration_error'
+  | 'doctor_temp_registration_success'
+  | 'doctor_complete_registration_failed'
+  | 'doctor_complete_registration_success'
+  | 'doctor_finalize_registration_auth_failed'
+  | 'doctor_finalize_registration_profile_failed'
+  | 'doctor_finalize_registration_doctor_failed'
+  | 'doctor_finalize_registration_success'
+  | 'doctor_verification_marked_complete';
 
 /**
  * Niveles de severidad para eventos de seguridad

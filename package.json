@@ -28,7 +28,11 @@
     "health:check": "node scripts/health-check.js",
     "monitor": "node scripts/health-check.js",
     "deploy:vercel": "node scripts/deploy-vercel.js",
-    "vercel:link": "node scripts/setup-vercel-auto.js"
+    "vercel:link": "node scripts/setup-vercel-auto.js",
+    "create:test-patient": "tsx scripts/create-test-patient.ts",
+    "create:test-patient:js": "node scripts/create-test-patient.js",
+    "delete:all-users": "tsx scripts/delete-all-users.ts",
+    "delete:all-users:js": "node scripts/delete-all-users.js"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
@@ -80,6 +84,7 @@
     "react-hook-form": "^7.62.0",
     "react-phone-number-input": "^3.4.12",
     "react-simple-phone-input": "^5.2.2",
+    "recharts": "^3.2.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.1.5",

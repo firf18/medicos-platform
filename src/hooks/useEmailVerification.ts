@@ -6,7 +6,6 @@
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { emailVerificationTracker } from '@/lib/email-verification/verification-tracker';
 
 interface EmailVerificationState {
@@ -32,10 +31,15 @@ export const useEmailVerification = ({
   onVerificationComplete, 
   onVerificationError 
 }: UseEmailVerificationProps) => {
-  // Inicializar tracker de verificación
+  // Inicializar tracker de verificación (idempotente)
   React.useEffect(() => {
     if (email) {
-      emailVerificationTracker.startVerification(email);
+      const wasCreated = emailVerificationTracker.startVerification(email);
+      if (wasCreated) {
+        console.log('📧 Nuevo tracker creado para:', email);
+      } else {
+        console.log('📧 Tracker ya existía para:', email);
+      }
     }
   }, [email]);
   const [state, setState] = useState<EmailVerificationState>({
@@ -50,7 +54,6 @@ export const useEmailVerification = ({
     lastAttemptTime: null
   });
 
-  const supabase = createClient();
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Client-side rate limiting configuration
@@ -131,8 +134,8 @@ export const useEmailVerification = ({
     }));
 
     try {
-      // Usar Supabase Auth nativo para enviar código de verificación
-      const response = await fetch('/api/auth/send-verification-code', {
+      // Nuevo flujo: API interna que usa tablas temporales
+      const response = await fetch('/api/auth/register/doctor/request-email-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +148,7 @@ export const useEmailVerification = ({
       if (!response.ok) {
         // Manejar rate limit específicamente
         if (response.status === 429 || data.rateLimited) {
-          const cooldownSeconds = data.waitTime || 30;
+          const cooldownSeconds = data.waitTime || 60;
           const retryAfter = data.retryAfter || (Date.now() + (cooldownSeconds * 1000));
           
           setState(prev => ({ 
@@ -171,11 +174,10 @@ export const useEmailVerification = ({
             });
           }, 1000);
           
-          // Don't call onVerificationError for rate limiting - it's handled by the UI
+          // No llamar onVerificationError para rate limit - UI lo maneja
           return;
         }
-        
-        // For other errors, call the error handler
+
         const errorMessage = data.error || 'Error enviando código de verificación';
         setState(prev => ({ 
           ...prev, 
@@ -224,8 +226,8 @@ export const useEmailVerification = ({
     setState(prev => ({ ...prev, isVerifying: true, error: null }));
 
     try {
-      // Verificar el código OTP
-      const response = await fetch('/api/auth/verify-email-code', {
+      // Nuevo flujo: API interna que valida código en tablas temporales
+      const response = await fetch('/api/auth/register/doctor/verify-email-code', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -252,14 +254,8 @@ export const useEmailVerification = ({
         error: null
       }));
       
-      console.log('🎉 Hook: Verificación completada, llamando onVerificationComplete');
-      console.log('🔍 Hook: onVerificationComplete es:', typeof onVerificationComplete);
       if (onVerificationComplete) {
-        console.log('🔍 Hook: Ejecutando callback...');
         onVerificationComplete();
-        console.log('✅ Hook: Callback ejecutado');
-      } else {
-        console.log('❌ Hook: onVerificationComplete es undefined');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error verificando código';

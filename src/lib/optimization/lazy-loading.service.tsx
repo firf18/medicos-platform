@@ -188,14 +188,14 @@ export class LazyLoadingService {
    */
   static createMedicalComponentLazyLoaders() {
     return {
-      // Doctor registration components
+      // Doctor registration components (modulares)
       PersonalInfoStep: this.createLazyComponent(
         () => import('@/components/auth/doctor-registration/PersonalInfoStep'),
         { priority: 'high', cacheKey: 'PersonalInfoStep' }
       ),
       
       ProfessionalInfoStep: this.createLazyComponent(
-        () => import('@/components/auth/doctor-registration/ProfessionalInfoStep'),
+        () => import('@/domains/auth/components/professional-info'),
         { priority: 'high', cacheKey: 'ProfessionalInfoStep' }
       ),
       
@@ -205,7 +205,7 @@ export class LazyLoadingService {
       ),
       
       FinalReviewStep: this.createLazyComponent(
-        () => import('@/components/auth/doctor-registration/FinalReviewStep'),
+        () => import('@/domains/auth/components/final-review'),
         { priority: 'high', cacheKey: 'FinalReviewStep' }
       ),
 

@@ -3,26 +3,30 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth';
-import { getSpecialtyById } from '@/lib/medical-specialties/specialty-utils';
+import { useDoctorAuth } from '@/hooks/useDoctorAuth';
+import { Loader2 } from 'lucide-react';
 
 export default function DashboardRedirect() {
   const router = useRouter();
   const { user } = useAuth();
+  const { doctorProfile, specialty, isLoading, isDoctor } = useDoctorAuth();
 
   useEffect(() => {
+    if (isLoading) return;
+
     if (!user) {
       router.push('/auth/login');
       return;
     }
 
-    // Redirigir al dashboard específico según el tipo de usuario y especialidad
-    if (user.role === 'doctor') {
-      const specialtyId = user.specialtyId;
-      const specialty = getSpecialtyById(specialtyId);
-      
+    // Redirigir según el tipo de usuario
+    if (user.role === 'doctor' || isDoctor) {
       if (specialty) {
         // Redirigir al dashboard específico de la especialidad
-        router.push(`/dashboard/${specialtyId}`);
+        const specialtyRoute = specialty.id === 'medicina_general' 
+          ? 'medicina-general' 
+          : specialty.id;
+        router.push(`/dashboard/${specialtyRoute}`);
       } else {
         // Si no hay especialidad definida, ir a medicina general por defecto
         router.push('/dashboard/medicina-general');
@@ -37,11 +41,14 @@ export default function DashboardRedirect() {
       // Rol no reconocido, redirigir a login
       router.push('/auth/login');
     }
-  }, [user, router]);
+  }, [user, doctorProfile, specialty, isLoading, isDoctor, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+        <p className="text-gray-600">Redirigiendo al dashboard...</p>
+      </div>
     </div>
   );
 }

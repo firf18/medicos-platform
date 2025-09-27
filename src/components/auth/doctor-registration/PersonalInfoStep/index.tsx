@@ -5,11 +5,14 @@ import { User, Mail, Phone, Lock, Shield, CheckCircle, AlertCircle } from 'lucid
 import FormField from './FormField';
 import PasswordField from './PasswordField';
 import PasswordStrengthIndicator from './PasswordStrengthIndicator';
+import NameFieldsSection from './NameFieldsSection';
+import ContactFieldsSection from './ContactFieldsSection';
+import PasswordFieldsSection from './PasswordFieldsSection';
 import { EmailVerification } from '@/components/auth/EmailVerification';
 import { useEmailVerification } from '@/contexts/EmailVerificationContext';
 import { emailVerificationTracker } from '@/lib/email-verification/verification-tracker';
 import { phoneVerificationTracker } from '@/lib/phone-verification/phone-verification-tracker';
-import { validateEmail, validateName, validateVenezuelanPhone, validatePasswordStrength, checkEmailAvailability } from './utils';
+import { validateEmail, validateName, validateVenezuelanPhone, validatePasswordStrength, checkEmailAvailability, checkPhoneAvailability } from './utils';
 import type { EmailValidationResult, PasswordValidationResult, FormData } from './types';
 
 interface PersonalInfoStepProps {
@@ -40,6 +43,7 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({});
   const [isEmailAvailable, setIsEmailAvailable] = useState<boolean | null>(null);
+  const [isPhoneAvailable, setIsPhoneAvailable] = useState<boolean | null>(null);
   const [emailValidationResult, setEmailValidationResult] = useState<EmailValidationResult | null>(null);
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
@@ -69,7 +73,7 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     setFormData(initialFormData);
   }, [initialFormData]);
 
-  // Inicializar tracker de email si ya hay un email válido
+  // Inicializar tracker de email si ya hay un email válido (idempotente)
   useEffect(() => {
     if (formData.email && validateEmail(formData.email)) {
       // Verificar si hay una sesión activa
@@ -82,38 +86,52 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         emailVerificationTracker.extendSession(formData.email);
       } else {
         console.log('📧 Inicializando tracker de email al cargar componente');
-        emailVerificationTracker.startVerification(formData.email);
+        const wasCreated = emailVerificationTracker.startVerification(formData.email);
+        if (wasCreated) {
+          console.log('📧 Nuevo tracker de email creado');
+        } else {
+          console.log('📧 Tracker de email ya existía');
+        }
       }
     }
   }, [formData.email, setIsEmailVerified, setVerifiedEmail]);
 
-  // Inicializar tracker de teléfono si ya hay un teléfono válido
+  // Inicializar estado de teléfono al cargar si hay uno válido: primero validar disponibilidad
   useEffect(() => {
     if (formData.phone && validateVenezuelanPhone(formData.phone)) {
       console.log('📱 Verificando teléfono al cargar componente:', formData.phone);
       
-      // Verificar si hay una sesión activa
-      const hasActiveSession = phoneVerificationTracker.hasActiveSession(formData.phone);
-      
-      if (hasActiveSession) {
-        console.log('📱 Teléfono ya tiene sesión activa al cargar componente');
-        setIsPhoneVerified(true);
-        setVerifiedPhone(formData.phone);
-        phoneVerificationTracker.extendSession(formData.phone);
-      } else {
-        console.log('📱 Inicializando tracker de teléfono al cargar componente');
-        phoneVerificationTracker.startVerification(formData.phone);
-        
-        // Iniciar verificación automática inmediatamente
-        setTimeout(() => {
-          if (isMountedRef.current) {
-            console.log('📱 Ejecutando verificación automática de teléfono');
+      checkPhoneAvailability(formData.phone).then(result => {
+        if (!isMountedRef.current) return;
+        setIsPhoneAvailable(result.isAvailable);
+        if (result.isAvailable) {
+          // Verificar si hay una sesión activa
+          const hasActiveSession = phoneVerificationTracker.hasActiveSession(formData.phone);
+          if (hasActiveSession) {
+            console.log('📱 Teléfono ya tiene sesión activa al cargar componente');
+            setIsPhoneVerified(true);
+            setVerifiedPhone(formData.phone);
+            phoneVerificationTracker.extendSession(formData.phone);
+          } else {
+            console.log('📱 Inicializando tracker de teléfono al cargar componente');
+            const wasCreated = phoneVerificationTracker.startVerification(formData.phone);
+            if (wasCreated) {
+              console.log('📱 Nuevo tracker de teléfono creado');
+            } else {
+              console.log('📱 Tracker de teléfono ya existía');
+            }
+            // Marcar como verificado para persistencia local de la sesión
             phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
             setIsPhoneVerified(true);
             setVerifiedPhone(formData.phone);
           }
-        }, 100);
-      }
+        } else {
+          setIsPhoneVerified(false);
+          setVerifiedPhone(null);
+        }
+      });
+    } else {
+      setIsPhoneAvailable(null);
     }
   }, [formData.phone, setIsPhoneVerified, setVerifiedPhone]);
 
@@ -127,7 +145,12 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
       
       if (!hasActiveSession) {
         console.log('📱 Creando sesión para teléfono verificado en contexto');
-        phoneVerificationTracker.startVerification(verifiedPhone);
+        const wasCreated = phoneVerificationTracker.startVerification(verifiedPhone);
+        if (wasCreated) {
+          console.log('📱 Nuevo tracker de teléfono creado desde contexto');
+        } else {
+          console.log('📱 Tracker de teléfono ya existía desde contexto');
+        }
         phoneVerificationTracker.markAsVerified(verifiedPhone, 'auto');
       } else {
         console.log('📱 Extendiendo sesión para teléfono verificado en contexto');
@@ -232,13 +255,11 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     // No resetear si no hay teléfono verificado previo
   }, [formData.phone, verifiedPhone, setIsPhoneVerified, setVerifiedPhone]);
 
-  // Iniciar verificación automática del teléfono cuando sea válido
+  // Mantener sincronizado el tracker si el contexto dice verificado y no hay registro
   useEffect(() => {
     if (formData.phone && validateVenezuelanPhone(formData.phone)) {
-      // Verificar si hay una sesión activa antes de verificar
       const hasActiveSession = phoneVerificationTracker.hasActiveSession(formData.phone);
       const isVerifiedInTracker = phoneVerificationTracker.isPhoneVerified(formData.phone);
-      
       console.log('📱 [PHONE-VERIFICATION] Estado actual:', {
         phone: formData.phone,
         hasActiveSession,
@@ -246,51 +267,26 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         isPhoneVerified,
         verifiedPhone
       });
-      
-      if (!hasActiveSession && !isVerifiedInTracker) {
-        console.log('📱 Iniciando verificación automática de teléfono - no hay sesión activa');
-        
-        // Iniciar verificación en el tracker
-        phoneVerificationTracker.startVerification(formData.phone);
-        
-        // Simular verificación automática del teléfono
-        const timeoutId = setTimeout(() => {
-          if (isMountedRef.current) {
-            // Marcar como verificado en el tracker
-            phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
-            
-            // Actualizar contexto
-            setIsPhoneVerified(true);
-            setVerifiedPhone(formData.phone);
-            
-            console.log('✅ [PHONE-VERIFICATION] Teléfono marcado como verificado:', formData.phone);
+
+      if (isPhoneAvailable === true) {
+        if (hasActiveSession || isVerifiedInTracker) {
+          setIsPhoneVerified(true);
+          setVerifiedPhone(formData.phone);
+          if (hasActiveSession) {
+            phoneVerificationTracker.extendSession(formData.phone);
           }
-        }, 1000); // Aumentar timeout para asegurar que el registro se complete
-        
-        // Cleanup function
-        return () => {
-          clearTimeout(timeoutId);
-        };
-      } else if (hasActiveSession || isVerifiedInTracker) {
-        console.log('✅ Teléfono ya tiene sesión activa o está verificado, restaurando estado');
-        setIsPhoneVerified(true);
-        setVerifiedPhone(formData.phone);
-        // Extender la sesión si existe
-        if (hasActiveSession) {
-          phoneVerificationTracker.extendSession(formData.phone);
+        } else if (isPhoneVerified && verifiedPhone === formData.phone && !isVerifiedInTracker) {
+          const wasCreated = phoneVerificationTracker.startVerification(formData.phone);
+          if (wasCreated) {
+            console.log('📱 Nuevo tracker creado para sincronización');
+          } else {
+            console.log('📱 Tracker ya existía para sincronización');
+          }
+          phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
         }
-      } else if (isPhoneVerified && verifiedPhone === formData.phone && !isVerifiedInTracker) {
-        // Caso especial: el contexto dice que está verificado pero el tracker no tiene registro
-        console.log('🔧 [PHONE-VERIFICATION] Sincronizando estado: contexto verificado pero tracker sin registro');
-        
-        // Crear registro en el tracker para sincronizar
-        phoneVerificationTracker.startVerification(formData.phone);
-        phoneVerificationTracker.markAsVerified(formData.phone, 'auto');
-        
-        console.log('✅ [PHONE-VERIFICATION] Estado sincronizado en tracker');
       }
     }
-  }, [formData.phone, isPhoneVerified, verifiedPhone, setIsPhoneVerified, setVerifiedPhone]);
+  }, [formData.phone, isPhoneAvailable, isPhoneVerified, verifiedPhone, setIsPhoneVerified, setVerifiedPhone]);
 
   // Marcar campo como tocado
   const markFieldAsTouched = useCallback((field: string, value: string) => {
@@ -434,20 +430,39 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
           ...prev,
           [field]: true
         }));
-        // Simular verificación automática de teléfono cuando es válido
-        const phoneValidation = validateVenezuelanPhone(value);
-        if (phoneValidation) {
-          // Verificación inmediata para mejor UX
-          if (isMountedRef.current) {
-            setIsPhoneVerified(true);
-            setVerifiedPhone(value);
-          }
+        const isValidPhone = validateVenezuelanPhone(value);
+        if (isValidPhone) {
+          // Comprobar disponibilidad en backend antes de marcar como verificado
+          checkPhoneAvailability(value).then(result => {
+            if (!isMountedRef.current) return;
+            setIsPhoneAvailable(result.isAvailable);
+            if (result.isAvailable) {
+              setIsPhoneVerified(true);
+              setVerifiedPhone(value);
+              // Sincronizar tracker (idempotente)
+              const wasCreated = phoneVerificationTracker.startVerification(value);
+              if (wasCreated) {
+                console.log('📱 Nuevo tracker creado para teléfono disponible');
+              } else {
+                console.log('📱 Tracker ya existía para teléfono disponible');
+              }
+              phoneVerificationTracker.markAsVerified(value, 'auto');
+              // Limpiar error si existía
+              formErrors?.clearFieldError('teléfono');
+            } else {
+              setIsPhoneVerified(false);
+              setVerifiedPhone(null);
+              formErrors?.setFieldError('teléfono', 'Este teléfono ya está registrado');
+            }
+          });
         } else {
+          setIsPhoneAvailable(null);
           setIsPhoneVerified(false);
           setVerifiedPhone(null);
         }
       } else {
         // Limpiar estados de verificación si el campo está vacío
+        setIsPhoneAvailable(null);
         setIsPhoneVerified(false);
         setVerifiedPhone(null);
       }
@@ -509,6 +524,10 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     if (isEmailAvailable === false) {
       isValid = false;
     }
+    // Verificar teléfono disponible
+    if (isPhoneAvailable === false) {
+      isValid = false;
+    }
 
     // Verificar que el email esté verificado
     if (!isEmailVerified) {
@@ -521,7 +540,7 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     }
 
     return isValid;
-  }, [formData, formErrors, isEmailAvailable, isEmailVerified, isPhoneVerified, validateField]);
+  }, [formData, formErrors, isEmailAvailable, isPhoneAvailable, isEmailVerified, isPhoneVerified, validateField]);
 
   // Referencias estables para callbacks
   const handleEmailVerificationCompleteRef = useRef(() => {
@@ -599,7 +618,7 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
       const isValid = validateFormForSubmission();
       onValidationChange(isValid);
     }
-  }, [formData, isEmailAvailable, isEmailVerified, isPhoneVerified, onValidationChange]);
+  }, [formData, isEmailAvailable, isPhoneAvailable, isEmailVerified, isPhoneVerified, onValidationChange]);
 
   // Limpiar referencias al desmontar
   useEffect(() => {
@@ -711,54 +730,30 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         </p>
       </div>
 
-      {/* Formulario unificado sin divisiones visuales */}
+      {/* Formulario modularizado con subcomponentes */}
       <div className="space-y-6">
-        {/* Nombre y Apellido */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            id="firstName"
-            type="text"
-            placeholder="Ej: María José, Juan Carlos"
-            value={formData.firstName}
-            onChange={(value) => handleInputChange('firstName', value)}
-            onBlur={() => markFieldAsTouched('firstName', formData.firstName)}
-            fieldName="firstName"
-            fieldTouched={fieldTouched.firstName || false}
-            hasError={formErrors?.hasFieldError('nombre') || false}
-            errorElement={fieldTouched.firstName ? formErrors?.getFieldErrorElement('nombre') || null : null}
-            icon={<User className="h-4 w-4 mr-2" />}
-            label="Nombre"
-            isRequired
-            isValid={validateName(formData.firstName)}
-          />
+        {/* Sección de Nombre y Apellido */}
+        <NameFieldsSection
+          formData={{
+            firstName: formData.firstName,
+            lastName: formData.lastName
+          }}
+          onFieldChange={(field, value) => handleInputChange(field, value)}
+          onFieldBlur={(field, value) => markFieldAsTouched(field, value)}
+          fieldTouched={fieldTouched}
+          formErrors={formErrors}
+        />
 
-          <FormField
-            id="lastName"
-            type="text"
-            placeholder="Ej: González Pérez, Rodríguez López"
-            value={formData.lastName}
-            onChange={(value) => handleInputChange('lastName', value)}
-            onBlur={() => markFieldAsTouched('lastName', formData.lastName)}
-            fieldName="lastName"
-            fieldTouched={fieldTouched.lastName || false}
-            hasError={formErrors?.hasFieldError('apellido') || false}
-            errorElement={fieldTouched.lastName ? formErrors?.getFieldErrorElement('apellido') || null : null}
-            icon={<User className="h-4 w-4 mr-2" />}
-            label="Apellido"
-            isRequired
-            isValid={validateName(formData.lastName)}
-          />
-        </div>
-
-        {/* Email */}
-        <FormField
-          id="email"
-          type="email"
-          placeholder="Ingrese su correo electrónico"
-          value={formData.email}
-          onChange={(value) => handleInputChange('email', value)}
-          onBlur={() => markFieldAsTouched('email', formData.email)}
-          onPaste={(e) => {
+        {/* Sección de Contacto (Email y Teléfono) */}
+        <ContactFieldsSection
+          formData={{
+            email: formData.email,
+            phone: formData.phone
+          }}
+          onFieldChange={(field, value) => handleInputChange(field, value)}
+          onFieldBlur={(field, value) => markFieldAsTouched(field, value)}
+          onFieldPaste={(field, e) => {
+            if (field === 'email') {
             // Manejar pegado de texto
             setTimeout(() => {
               const pastedValue = e.currentTarget.value;
@@ -767,121 +762,28 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
               // Validar inmediatamente después de pegar
               validateField('email', pastedValue);
             }, 0);
+            }
           }}
-          fieldName="email"
-          fieldTouched={fieldTouched.email || false}
-          hasError={formErrors?.hasFieldError('correo electrónico') || false}
-          errorElement={fieldTouched.email ? formErrors?.getFieldErrorElement('correo electrónico') || null : null}
-          icon={<Mail className="h-4 w-4 mr-2" />}
-          label="Correo Electrónico"
-          isRequired
-          isValid={validateEmail(formData.email) && isEmailAvailable === true}
-          showValidIndicator={false}
-          rightElement={
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              {isEmailAvailable === true && (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              )}
-              {isEmailAvailable === false && (
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              )}
-              {isEmailAvailable === null && formData.email && validateEmail(formData.email) && (fieldTouched.email || formData.email) && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              )}
-            </div>
-          }
+          fieldTouched={fieldTouched}
+          formErrors={formErrors}
+          isEmailAvailable={isEmailAvailable}
+          isEmailVerified={isEmailVerified}
+          isPhoneAvailable={isPhoneAvailable}
+          isPhoneVerified={isPhoneVerified}
+          onStartEmailVerification={handleStartEmailVerification}
         />
-        {isEmailAvailable === true && !isEmailVerified && (
-          <div className="space-y-2">
-            <p className="text-sm text-green-600 flex items-center">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Email disponible
-            </p>
-            <button
-              type="button"
-              onClick={handleStartEmailVerification}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
-            >
-              Verificar correo electrónico
-            </button>
-          </div>
-        )}
 
-        {isEmailVerified && (
-          <p className="text-sm text-green-600 flex items-center">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Email verificado correctamente
-          </p>
-        )}
-
-         {/* Teléfono */}
-         <FormField
-           id="phone"
-           type="tel"
-           placeholder="Número de teléfono"
-           value={formData.phone}
-           onChange={(value) => handleInputChange('phone', value)}
-           onBlur={() => markFieldAsTouched('phone', formData.phone)}
-           fieldName="phone"
-           fieldTouched={fieldTouched.phone || false}
-           hasError={formErrors?.hasFieldError('teléfono') || false}
-           errorElement={fieldTouched.phone ? formErrors?.getFieldErrorElement('teléfono') || null : null}
-           icon={<Phone className="h-4 w-4 mr-2" />}
-           label="Número de Teléfono"
-           isRequired
-           isValid={validateVenezuelanPhone(formData.phone)}
-           prefix="+58"
-         />
-
-         {/* Indicador de teléfono verificado */}
-         {isPhoneVerified && (
-           <p className="text-sm text-green-600 flex items-center">
-             <CheckCircle className="h-3 w-3 mr-1" />
-             Teléfono verificado correctamente
-           </p>
-         )}
-
-        {/* Contraseñas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <PasswordField
-            id="password"
-            placeholder="Crear contraseña segura"
-            value={formData.password}
-            onChange={(value) => handleInputChange('password', value)}
-            onBlur={() => markFieldAsTouched('password', formData.password)}
-            fieldName="password"
-            fieldTouched={fieldTouched.password || false}
-            hasError={formErrors?.hasFieldError('contraseña') || false}
-            errorElement={fieldTouched.password ? formErrors?.getFieldErrorElement('contraseña') || null : null}
-            icon={<Lock className="h-4 w-4 mr-2" />}
-            label="Contraseña"
-            isRequired
-            isValid={passwordStrength.isValid}
-          />
-
-          <PasswordField
-            id="confirmPassword"
-            placeholder="Confirme su contraseña"
-            value={formData.confirmPassword}
-            onChange={(value) => handleInputChange('confirmPassword', value)}
-            onBlur={() => markFieldAsTouched('confirmPassword', formData.confirmPassword)}
-            fieldName="confirmPassword"
-            fieldTouched={fieldTouched.confirmPassword || false}
-            hasError={formErrors?.hasFieldError('confirmación de contraseña') || false}
-            errorElement={fieldTouched.confirmPassword ? formErrors?.getFieldErrorElement('confirmación de contraseña') || null : null}
-            icon={<Shield className="h-4 w-4 mr-2" />}
-            label="Confirmar Contraseña"
-            isRequired
-            isConfirmation
-            passwordToCompare={formData.password}
-          />
-        </div>
-
-        {/* Indicador de fortaleza de contraseña */}
-        <PasswordStrengthIndicator
+        {/* Sección de Contraseñas */}
+        <PasswordFieldsSection
+          formData={{
+            password: formData.password,
+            confirmPassword: formData.confirmPassword
+          }}
+          onFieldChange={(field, value) => handleInputChange(field, value)}
+          onFieldBlur={(field, value) => markFieldAsTouched(field, value)}
+          fieldTouched={fieldTouched}
+          formErrors={formErrors}
           passwordStrength={passwordStrength}
-          password={formData.password}
-          fieldTouched={fieldTouched.password || false}
         />
 
         {/* Información de seguridad */}

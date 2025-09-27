@@ -114,49 +114,45 @@ export function ModernPatientRegistrationForm() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Información Personal */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <Heart className="h-5 w-5 mr-2 text-emerald-600" />
-              Información Personal
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Nombre *</Label>
-                <Input
-                  id="firstName"
-                  {...form.register('firstName')}
-                  placeholder="Tu nombre"
-                  disabled={isLoading}
-                />
-                {form.formState.errors.firstName && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {form.formState.errors.firstName.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Apellido *</Label>
-                <Input
-                  id="lastName"
-                  {...form.register('lastName')}
-                  placeholder="Tu apellido"
-                  disabled={isLoading}
-                />
-                {form.formState.errors.lastName && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {form.formState.errors.lastName.message}
-                  </p>
-                )}
-              </div>
+        {/* Formulario Unificado */}
+        <div className="space-y-6">
+          {/* Nombre y Apellido */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">Nombre *</Label>
+              <Input
+                id="firstName"
+                {...form.register('firstName')}
+                placeholder="Tu nombre"
+                disabled={isLoading}
+              />
+              {form.formState.errors.firstName && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {form.formState.errors.firstName.message}
+                </p>
+              )}
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Apellido *</Label>
+              <Input
+                id="lastName"
+                {...form.register('lastName')}
+                placeholder="Tu apellido"
+                disabled={isLoading}
+              />
+              {form.formState.errors.lastName && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {form.formState.errors.lastName.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Email y Teléfono */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
               <Input
@@ -190,43 +186,44 @@ export function ModernPatientRegistrationForm() {
                 </p>
               )}
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="dateOfBirth">Fecha de Nacimiento *</Label>
-                <Input
-                  id="dateOfBirth"
-                  type="date"
-                  {...form.register('dateOfBirth')}
-                  disabled={isLoading}
-                />
-                {form.formState.errors.dateOfBirth && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {form.formState.errors.dateOfBirth.message}
-                  </p>
-                )}
-              </div>
+          {/* Fecha de Nacimiento, Género y Tipo de Sangre */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth">Fecha de Nacimiento *</Label>
+              <Input
+                id="dateOfBirth"
+                type="date"
+                {...form.register('dateOfBirth')}
+                disabled={isLoading}
+              />
+              {form.formState.errors.dateOfBirth && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {form.formState.errors.dateOfBirth.message}
+                </p>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="gender">Género *</Label>
-                <Select onValueChange={(value) => form.setValue('gender', value as 'male' | 'female' | 'other')}>
-                  <SelectTrigger disabled={isLoading}>
-                    <SelectValue placeholder="Selecciona tu género" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Masculino</SelectItem>
-                    <SelectItem value="female">Femenino</SelectItem>
-                    <SelectItem value="other">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.gender && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {form.formState.errors.gender.message}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="gender">Género *</Label>
+              <Select onValueChange={(value) => form.setValue('gender', value as 'male' | 'female' | 'other')}>
+                <SelectTrigger disabled={isLoading}>
+                  <SelectValue placeholder="Selecciona tu género" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Masculino</SelectItem>
+                  <SelectItem value="female">Femenino</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.formState.errors.gender && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {form.formState.errors.gender.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -247,18 +244,10 @@ export function ModernPatientRegistrationForm() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Información de Seguridad */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <CheckCircle className="h-5 w-5 mr-2 text-blue-600" />
-              Información de Seguridad
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          {/* Contraseñas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña *</Label>
               <div className="relative">
@@ -324,54 +313,44 @@ export function ModernPatientRegistrationForm() {
                 </p>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Contacto de Emergencia */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <AlertCircle className="h-5 w-5 mr-2 text-orange-600" />
-              Contacto de Emergencia
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="emergencyContact">Nombre del Contacto *</Label>
-                <Input
-                  id="emergencyContact"
-                  {...form.register('emergencyContact')}
-                  placeholder="Nombre completo"
-                  disabled={isLoading}
-                />
-                {form.formState.errors.emergencyContact && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {form.formState.errors.emergencyContact.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="emergencyPhone">Teléfono de Emergencia *</Label>
-                <Input
-                  id="emergencyPhone"
-                  type="tel"
-                  {...form.register('emergencyPhone')}
-                  placeholder="+1 (555) 123-4567"
-                  disabled={isLoading}
-                />
-                {form.formState.errors.emergencyPhone && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {form.formState.errors.emergencyPhone.message}
-                  </p>
-                )}
-              </div>
+          {/* Contacto de Emergencia */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="emergencyContact">Nombre del Contacto *</Label>
+              <Input
+                id="emergencyContact"
+                {...form.register('emergencyContact')}
+                placeholder="Nombre completo"
+                disabled={isLoading}
+              />
+              {form.formState.errors.emergencyContact && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {form.formState.errors.emergencyContact.message}
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="space-y-2">
+              <Label htmlFor="emergencyPhone">Teléfono de Emergencia *</Label>
+              <Input
+                id="emergencyPhone"
+                type="tel"
+                {...form.register('emergencyPhone')}
+                placeholder="+1 (555) 123-4567"
+                disabled={isLoading}
+              />
+              {form.formState.errors.emergencyPhone && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {form.formState.errors.emergencyPhone.message}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Términos y Condiciones */}
         <Card>

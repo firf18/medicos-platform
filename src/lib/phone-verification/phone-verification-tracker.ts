@@ -33,10 +33,17 @@ class PhoneVerificationTracker {
 
   /**
    * Iniciar proceso de verificación
+   * @returns true si se creó un nuevo registro, false si ya existía
    */
-  public startVerification(phone: string): void {
+  public startVerification(phone: string): boolean {
     console.log('📱 [PHONE-TRACKER] Iniciando verificación para:', phone);
     
+    // Evitar duplicados si ya existe un registro para este teléfono
+    if (this.verifications.has(phone)) {
+      console.log('ℹ️ [PHONE-TRACKER] Registro ya existente, omitiendo creación:', phone);
+      return false;
+    }
+
     this.verifications.set(phone, {
       phone,
       isVerified: false,
@@ -46,7 +53,8 @@ class PhoneVerificationTracker {
       lastAttemptTimestamp: null
     });
     
-    console.log('📱 [PHONE-TRACKER] Registro creado para:', phone, 'Total registros:', this.verifications.size);
+    console.log('✅ [PHONE-TRACKER] Registro creado para:', phone, 'Total registros:', this.verifications.size);
+    return true;
   }
 
   /**

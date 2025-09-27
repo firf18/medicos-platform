@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log de seguridad
-    logSecurityEvent('doctor_temp_registration_started', {
+    logSecurityEvent('doctor_temp_registration_started', 'Doctor temporary registration started', {
       email: registrationData.email,
       specialtyId: registrationData.specialtyId,
       timestamp: new Date().toISOString()
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     if (!result.success) {
       console.error('❌ Error creando registro temporal:', result.error);
       
-      logSecurityEvent('doctor_temp_registration_failed', {
+      logSecurityEvent('doctor_temp_registration_failed', 'Doctor temporary registration failed', {
         email: registrationData.email,
         error: result.error,
         timestamp: new Date().toISOString()
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       token: result.verification_token
     });
 
-    logSecurityEvent('doctor_temp_registration_completed', {
+    logSecurityEvent('doctor_temp_registration_completed', 'Doctor temporary registration completed', {
       registrationId: result.data?.id,
       email: registrationData.email,
       timestamp: new Date().toISOString()

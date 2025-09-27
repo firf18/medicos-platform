@@ -9,8 +9,10 @@ import {
   PlusIcon,
   CalendarIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ArrowTrendingDownIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface HealthMetricsSectionProps {
   userId: string;
@@ -37,6 +39,15 @@ interface MetricSummary {
   trend: 'up' | 'down' | 'stable';
   change_percentage: number;
   count: number;
+  chart_data?: any[];
+}
+
+interface AddMetricForm {
+  metric_type: string;
+  value: string;
+  unit: string;
+  additional_data: string;
+  notes: string;
 }
 
 export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
@@ -45,6 +56,13 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
   const [loading, setLoading] = useState(true);
   const [selectedMetricType, setSelectedMetricType] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState<AddMetricForm>({
+    metric_type: 'weight',
+    value: '',
+    unit: 'kg',
+    additional_data: '',
+    notes: ''
+  });
   const supabase = createClientComponentClient();
 
   useEffect(() => {
@@ -90,7 +108,8 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
           latest_unit: '',
           trend: 'stable' as const,
           change_percentage: 0,
-          count: 0
+          count: 0,
+          chart_data: []
         };
       }
 
@@ -112,21 +131,39 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
         trend = changePercentage > 2 ? 'up' : changePercentage < -2 ? 'down' : 'stable';
       }
 
+      // Generate chart data for the last 30 days
+      const chartData = typeMetrics.slice(0, 10).reverse().map(metric => ({
+        date: new Date(metric.recorded_at).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+        value: metricType.type === 'blood_pressure' 
+          ? metric.additional_data?.systolic || metric.value
+          : metric.value,
+        fullDate: metric.recorded_at
+      }));
+
       return {
         ...metricType,
         latest_value: latest.value,
         latest_unit: latest.unit,
         trend,
         change_percentage: Math.abs(changePercentage),
-        count: typeMetrics.length
+        count: typeMetrics.length,
+        chart_data: chartData
       };
     });
 
     setMetricSummaries(summaries.filter(s => s.count > 0));
   };
 
-  const addMetric = async (metricData: any) => {
+  const addMetric = async () => {
     try {
+      const metricData = {
+        metric_type: addForm.metric_type,
+        value: parseFloat(addForm.value),
+        unit: addForm.unit,
+        additional_data: addForm.additional_data ? JSON.parse(addForm.additional_data) : null,
+        notes: addForm.notes || null
+      };
+
       const { error } = await supabase
         .from('health_metrics')
         .insert({
@@ -137,8 +174,16 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
         });
 
       if (error) throw error;
+      
       fetchHealthMetrics();
       setShowAddModal(false);
+      setAddForm({
+        metric_type: 'weight',
+        value: '',
+        unit: 'kg',
+        additional_data: '',
+        notes: ''
+      });
     } catch (error) {
       console.error('Error adding metric:', error);
     }
@@ -161,6 +206,18 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
       return `${metric.additional_data.systolic}/${metric.additional_data.diastolic}`;
     }
     return `${metric.value}`;
+  };
+
+  const getMetricUnits = (type: string) => {
+    const units = {
+      weight: ['kg', 'lbs'],
+      blood_pressure: ['mmHg'],
+      glucose: ['mg/dL', 'mmol/L'],
+      heart_rate: ['bpm'],
+      temperature: ['°C', '°F'],
+      oxygen_saturation: ['%']
+    };
+    return units[type as keyof typeof units] || ['unidad'];
   };
 
   const filteredMetrics = selectedMetricType === 'all' 
@@ -205,8 +262,8 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
         </button>
       </div>
 
-      {/* Metric Summaries */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Metric Summaries with Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {metricSummaries.map((summary) => {
           const Icon = summary.icon;
           return (
@@ -217,10 +274,10 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
                 </div>
                 <div className="flex items-center space-x-1">
                   {summary.trend === 'up' && (
-                    <ArrowArrowTrendingUpIcon className="w-4 h-4 text-red-500" />
+                    <ArrowTrendingUpIcon className="w-4 h-4 text-red-500" />
                   )}
                   {summary.trend === 'down' && (
-                    <ArrowArrowTrendingDownIcon className="w-4 h-4 text-green-500" />
+                    <ArrowTrendingDownIcon className="w-4 h-4 text-green-500" />
                   )}
                   {summary.change_percentage > 0 && (
                     <span className={`text-xs ${
@@ -237,7 +294,7 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
               </h3>
               
               {summary.latest_value !== null ? (
-                <div>
+                <div className="mb-4">
                   <p className="text-2xl font-bold text-gray-900">
                     {summary.type === 'blood_pressure' 
                       ? formatMetricValue(metrics.find(m => m.metric_type === summary.type)!)
@@ -249,7 +306,29 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
                   </p>
                 </div>
               ) : (
-                <p className="text-gray-500">Sin registros</p>
+                <p className="text-gray-500 mb-4">Sin registros</p>
+              )}
+
+              {/* Mini Chart */}
+              {summary.chart_data && summary.chart_data.length > 1 && (
+                <div className="h-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={summary.chart_data}>
+                      <Line 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke={summary.color === 'blue' ? '#3B82F6' : 
+                               summary.color === 'red' ? '#EF4444' :
+                               summary.color === 'green' ? '#10B981' :
+                               summary.color === 'yellow' ? '#F59E0B' :
+                               summary.color === 'orange' ? '#F97316' :
+                               summary.color === 'purple' ? '#8B5CF6' : '#6B7280'}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </div>
           );
@@ -345,10 +424,91 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Registrar Nueva Métrica</h3>
-            <p className="text-gray-600 mb-4">
-              Esta funcionalidad se implementará en la siguiente fase del desarrollo.
-            </p>
-            <div className="flex space-x-3">
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Métrica
+                </label>
+                <select
+                  value={addForm.metric_type}
+                  onChange={(e) => {
+                    setAddForm(prev => ({
+                      ...prev,
+                      metric_type: e.target.value,
+                      unit: getMetricUnits(e.target.value)[0]
+                    }));
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="weight">Peso</option>
+                  <option value="blood_pressure">Presión Arterial</option>
+                  <option value="glucose">Glucosa</option>
+                  <option value="heart_rate">Frecuencia Cardíaca</option>
+                  <option value="temperature">Temperatura</option>
+                  <option value="oxygen_saturation">Saturación de Oxígeno</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valor
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={addForm.value}
+                  onChange={(e) => setAddForm(prev => ({ ...prev, value: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ingresa el valor"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unidad
+                </label>
+                <select
+                  value={addForm.unit}
+                  onChange={(e) => setAddForm(prev => ({ ...prev, unit: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {getMetricUnits(addForm.metric_type).map(unit => (
+                    <option key={unit} value={unit}>{unit}</option>
+                  ))}
+                </select>
+              </div>
+
+              {addForm.metric_type === 'blood_pressure' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Datos Adicionales (JSON)
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.additional_data}
+                    onChange={(e) => setAddForm(prev => ({ ...prev, additional_data: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder='{"systolic": 120, "diastolic": 80}'
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notas (Opcional)
+                </label>
+                <textarea
+                  value={addForm.notes}
+                  onChange={(e) => setAddForm(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Agrega notas adicionales..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowAddModal(false)}
                 className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700"
@@ -356,10 +516,11 @@ export function HealthMetricsSection({ userId }: HealthMetricsSectionProps) {
                 Cancelar
               </button>
               <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                onClick={addMetric}
+                disabled={!addForm.value}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cerrar
+                Guardar
               </button>
             </div>
           </div>

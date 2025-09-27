@@ -49,7 +49,7 @@ export function DashboardOverview({ userId }: DashboardOverviewProps) {
   useEffect(() => {
     const fetchOverviewData = async () => {
       try {
-        // Fetch stats in parallel
+        // Fetch stats in parallel with proper error handling
         const [
           appointmentsResult,
           medicationsResult,
@@ -57,7 +57,7 @@ export function DashboardOverview({ userId }: DashboardOverviewProps) {
           notificationsResult,
           healthPlansResult,
           metricsResult
-        ] = await Promise.all([
+        ] = await Promise.allSettled([
           supabase
             .from('appointments')
             .select('*', { count: 'exact', head: true })
@@ -97,13 +97,21 @@ export function DashboardOverview({ userId }: DashboardOverviewProps) {
             .gte('recorded_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         ]);
 
+        // Extract counts safely
+        const getCount = (result: PromiseSettledResult<any>) => {
+          if (result.status === 'fulfilled' && !result.value.error) {
+            return result.value.count || 0;
+          }
+          return 0;
+        };
+
         setStats({
-          upcomingAppointments: appointmentsResult.count || 0,
-          activeMedications: medicationsResult.count || 0,
-          pendingResults: documentsResult.count || 0,
-          unreadNotifications: notificationsResult.count || 0,
-          activeHealthPlans: healthPlansResult.count || 0,
-          recentMetrics: metricsResult.count || 0
+          upcomingAppointments: getCount(appointmentsResult),
+          activeMedications: getCount(medicationsResult),
+          pendingResults: getCount(documentsResult),
+          unreadNotifications: getCount(notificationsResult),
+          activeHealthPlans: getCount(healthPlansResult),
+          recentMetrics: getCount(metricsResult)
         });
 
         // Fetch recent activity

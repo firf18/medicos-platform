@@ -22,6 +22,7 @@ interface PasswordFieldProps {
   showValidIndicator?: boolean;
   isConfirmation?: boolean;
   passwordToCompare?: string;
+  autoComplete?: string;
 }
 
 const PasswordField: React.FC<PasswordFieldProps> = ({
@@ -40,7 +41,8 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
   isValid,
   showValidIndicator = true,
   isConfirmation = false,
-  passwordToCompare = ''
+  passwordToCompare = '',
+  autoComplete
 }) => {
   // Estado para controlar si se muestra la contraseña
   const [showPassword, setShowPassword] = useState(false);
@@ -64,6 +66,7 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
         <Input
           id={id}
           type={showPassword ? "text" : "password"}
+          autoComplete={autoComplete}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}

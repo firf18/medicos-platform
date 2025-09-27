@@ -44,13 +44,19 @@ export function useAutoCleanup({ onCleanup, enabled = true }: UseAutoCleanupProp
     if (!enabled) return;
     
     const handleBeforeUnload = () => {
-      console.log('[AUTO_CLEANUP] Recarga de página detectada, limpiando datos');
-      handleCleanup();
+      // Solo limpiar si el usuario sale completamente del proceso de registro
+      // No limpiar por recargar la página
+      if (!isInRegistrationProcess) {
+        console.log('[AUTO_CLEANUP] Usuario salió del proceso de registro, limpiando datos');
+        handleCleanup();
+      }
     };
     
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        console.log('[AUTO_CLEANUP] Página oculta, limpiando datos');
+      // Solo limpiar si el usuario sale completamente del proceso de registro
+      // No limpiar por cambiar de pestaña
+      if (document.hidden && !isInRegistrationProcess) {
+        console.log('[AUTO_CLEANUP] Usuario salió del proceso de registro, limpiando datos');
         handleCleanup();
       }
     };
